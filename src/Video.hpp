@@ -11,6 +11,16 @@ extern "C"
 
 namespace DerperView
 {
+    struct VideoInfo
+    {
+        int width;
+        int height;
+        int bitRate;
+        AVRational frameRate;
+        AVRational videoTimeBase;
+        AVRational audioTimeBase;
+    };
+
     class InputVideoFile
     {
     public:
@@ -23,6 +33,8 @@ namespace DerperView
         int GetHeight() { return videoCodecContext_->height; }
         AVRational GetVideoTimebase() { return videoCodecContext_->time_base; }
         AVRational GetAudioTimebase() { return audioCodecContext_->time_base; }
+
+        VideoInfo GetVideoInfo();
 
     protected:
         std::string filename_;
@@ -38,7 +50,7 @@ namespace DerperView
     class OutputVideoFile
     {
     public:
-        OutputVideoFile(std::string filename, int width, int height, int bitRate, AVRational videoTimeBase, AVRational audioTimeBase);
+        OutputVideoFile(std::string filename, VideoInfo sourceInfo);
         virtual ~OutputVideoFile();
 
         int WriteNextFrame(AVFrame *frame);

@@ -45,6 +45,7 @@ int SetupContextWorker(AVFormatContext *formatContext, AVCodecContext **codecCon
         cerr << "Failed to open codec: " << av_get_media_type_string(type) << ": " << GetErrorString(result) << endl;
         return -666;
     }
+    (*codecContext)->time_base = stream->time_base;
 
     return streamIndex;
 }
@@ -151,7 +152,19 @@ AVFrame *InputVideoFile::GetNextFrame()
     return frame_;
 }
 
-OutputVideoFile::OutputVideoFile(string filename, int width, int height, int bitRate, AVRational videoTimeBase, AVRational audioTimeBase) :
+VideoInfo InputVideoFile::GetVideoInfo()
+{
+    VideoInfo v;
+    v.audioTimeBase = audioCodecContext_->time_base;
+    v.bitRate = videoCodecContext_->bit_rate;
+    v.frameRate = formatContext_->streams[videoStreamIndex_]->r_frame_rate;
+    v.height = videoCodecContext_->height;
+    v.videoTimeBase = videoCodecContext_->time_base;
+    v.width = videoCodecContext_->width;
+    return v;
+}
+
+OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
     filename_(filename),
     formatContext_(nullptr), videoCodecContext_(nullptr), audioCodecContext_(nullptr),
     videoStream_(nullptr), audioStream_(nullptr),
@@ -168,15 +181,16 @@ OutputVideoFile::OutputVideoFile(string filename, int width, int height, int bit
     videoCodecContext_ = avcodec_alloc_context3(videoCodec);
     videoStream_ = avformat_new_stream(formatContext_, videoCodec);
 
-    videoCodecContext_->bit_rate = bitRate;
-    videoCodecContext_->width = width;
-    videoCodecContext_->height = height;
+    videoCodecContext_->profile = FF_PROFILE_H264_MAIN;
+    videoCodecContext_->bit_rate = sourceInfo.bitRate;
+    videoCodecContext_->width = sourceInfo.width;
+    videoCodecContext_->height = sourceInfo.height;
     videoCodecContext_->gop_size = 12;
     videoCodecContext_->pix_fmt = AVPixelFormat::AV_PIX_FMT_YUV420P;
-    videoCodecContext_->time_base = AVRational { 1, 30 };
-    videoCodecContext_->framerate = AVRational{ 30, 1 };
-    videoStream_->avg_frame_rate = AVRational{ 30, 1 };
-    videoStream_->r_frame_rate = AVRational { 30, 1 };
+    videoCodecContext_->time_base = av_inv_q(sourceInfo.frameRate);
+    videoCodecContext_->framerate = sourceInfo.frameRate;
+    videoStream_->avg_frame_rate = sourceInfo.frameRate;
+    videoStream_->r_frame_rate = sourceInfo.frameRate;
     videoStream_->time_base = videoCodecContext_->time_base;
 
     if (formatContext_->oformat->flags & AVFMT_GLOBALHEADER)
@@ -197,7 +211,7 @@ OutputVideoFile::OutputVideoFile(string filename, int width, int height, int bit
     audioCodecContext_->sample_fmt = audioCodec->sample_fmts[0];
     audioCodecContext_->channel_layout = AV_CH_LAYOUT_STEREO;
     audioCodecContext_->channels = av_get_channel_layout_nb_channels(audioCodecContext_->channel_layout);
-    audioCodecContext_->time_base = audioTimeBase;
+    audioCodecContext_->time_base = sourceInfo.audioTimeBase;
     audioStream_->time_base = audioCodecContext_->time_base;
 
     opt = nullptr;
@@ -297,7 +311,7 @@ void OutputVideoFile::Flush()
     result = avcodec_receive_packet(audioCodecContext_, &packet);
     while (result != AVERROR_EOF)
     {
-        //av_packet_rescale_ts(&packet, audioCodecContext_->time_base, audioStream_->time_base);
+        av_packet_rescale_ts(&packet, audioCodecContext_->time_base, audioStream_->time_base);
         packet.stream_index = audioStream_->index;
         result = av_interleaved_write_frame(formatContext_, &packet);
         result = avcodec_receive_packet(audioCodecContext_, &packet);

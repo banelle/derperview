@@ -15,7 +15,10 @@ int main(int argc, char **argv)
     InputVideoFile input(filename);
     input.Dump();
     
-    OutputVideoFile output(filename + ".out.mp4", input.GetWidth() * 4 / 3, input.GetHeight(), 5 * 1024 * 1024, input.GetVideoTimebase(), input.GetAudioTimebase());
+    auto videoInfo = input.GetVideoInfo();
+    videoInfo.width = videoInfo.width * 4 / 3;
+    videoInfo.bitRate *= 1.4;
+    OutputVideoFile output(filename + ".out.mp4", videoInfo);
 
     int frameIndex = -1;
     int frameCount = 0;
@@ -23,17 +26,6 @@ int main(int argc, char **argv)
     auto frame = input.GetNextFrame();
     while (frame != nullptr)
     {
-
-        //if (frame->width == 0) // probably an audio frame ...
-        //    continue;
-
-        //frameIndex++;
-
-        //if (frameIndex % 5 != 0)
-        //    continue;
-
-        //DerperView::DumpToPng(frame, filename + "__basic.png");
-
         AVFrame *outputFrame = nullptr;
         if (frame->width == 0) // Audio - stream it through
         {
@@ -62,12 +54,6 @@ int main(int argc, char **argv)
 
             av_frame_free(&outputFrame);
         }
-
-
-        //stringstream newFilename;
-        //newFilename << filename << "." << frameCount << ".png";
-
-        //DerperView::DumpToPng(outputFrame, newFilename.str());
 
         frameCount++;
         cout << ".";
