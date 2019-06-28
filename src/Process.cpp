@@ -74,14 +74,7 @@ int ProcessFrame(int width, int height, vector<unsigned char> &inData, vector<un
 
 int ProcessFrameYuv(int width, int height, std::vector<unsigned char> &inData, std::vector<unsigned char> &outData)
 {
-    if (width * 3 / 4 != height) // Funky looking maths to keep this int
-    {
-        cerr << "Source not in 4:3 aspect ratio" << endl;
-        return -1;
-    }
     int targetWidth = width * 4 / 3;
-
-    outData.resize(static_cast<int>(height * targetWidth * 1.5));
 
     // Have we done this size before?
     if (LOOKUP.find(width) == LOOKUP.end())
@@ -102,7 +95,7 @@ int ProcessFrameYuv(int width, int height, std::vector<unsigned char> &inData, s
     const int uOffsetTarget = height * targetWidth;
     const int vOffsetTarget = static_cast<int>(height * targetWidth * 1.25);
 
-    for (int y = 0; y < height; y++)
+    for (int y = 0; y < height; y ++)
     {
         for (int x = 0; x < targetWidth; x++)
         {
@@ -135,14 +128,8 @@ int ProcessFrameYuv(int width, int height, std::vector<unsigned char> &inData, s
 
                 outData[uOffsetTarget + (y * targetWidth / 4 + x / 2)] = uout;
                 outData[vOffsetTarget + (y * targetWidth / 4 + x / 2)] = vout;
-
-                //cout << uvValue << endl;
-                //cout << uva0 << " " << uva1 << endl;
-                //cout << u0 << " " << u1 << " " << v0 << " " << v1 << endl;
-                //cout << uout << " " << vout << endl << "-------" << endl;
             }
         }
-        //break;
     }
 
     return targetWidth;

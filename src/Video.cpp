@@ -90,7 +90,7 @@ InputVideoFile::InputVideoFile(std::string filename) :
 
 InputVideoFile::~InputVideoFile()
 {
-    cout << "Input frames: " << videoCodecContext_->frame_number << endl;
+    //cout << "Input frames: " << videoCodecContext_->frame_number << endl;
 
     av_frame_free(&frame_);
     avcodec_free_context(&videoCodecContext_);
@@ -182,6 +182,7 @@ VideoInfo InputVideoFile::GetVideoInfo()
     v.frameRate = formatContext_->streams[videoStreamIndex_]->r_frame_rate;
     v.height = videoCodecContext_->height;
     v.streamTimeBase = formatContext_->streams[videoStreamIndex_]->time_base;
+    v.totalFrames = formatContext_->streams[videoStreamIndex_]->nb_frames;
     v.videoTimeBase = videoCodecContext_->time_base;
     v.width = videoCodecContext_->width;
     return v;
@@ -258,7 +259,7 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
 
 OutputVideoFile::~OutputVideoFile()
 {
-    cout << "Output frames: " << videoCodecContext_->frame_number << "(" << videoFrameCount_ << ")" << endl;
+    //cout << "Output frames: " << videoCodecContext_->frame_number << "(" << videoFrameCount_ << ")" << endl;
 
     av_write_trailer(formatContext_);
     avio_closep(&formatContext_->pb);

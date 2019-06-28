@@ -16,6 +16,7 @@ namespace DerperView
         int width;
         int height;
         int bitRate;
+        int64_t totalFrames;
         AVRational frameRate;
         AVRational videoTimeBase;
         AVRational streamTimeBase;
