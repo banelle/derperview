@@ -64,7 +64,7 @@ InputVideoFile::InputVideoFile(std::string filename) :
     filename_(filename),
     formatContext_(nullptr), videoCodecContext_(nullptr), audioCodecContext_(nullptr),
     videoStreamIndex_(-1), audioStreamIndex_(-1),
-    frame_(nullptr)
+    frame_(nullptr), draining_(false)
 {
     auto result = avformat_open_input(&formatContext_, filename_.c_str(), nullptr, nullptr);
     if (result < 0)
@@ -90,6 +90,8 @@ InputVideoFile::InputVideoFile(std::string filename) :
 
 InputVideoFile::~InputVideoFile()
 {
+    cout << "Input frames: " << videoCodecContext_->frame_number << endl;
+
     av_frame_free(&frame_);
     avcodec_free_context(&videoCodecContext_);
     avcodec_free_context(&audioCodecContext_);
@@ -105,6 +107,9 @@ void InputVideoFile::Dump()
 
 AVFrame *InputVideoFile::GetNextFrame()
 {
+    if (draining_)
+        return GetNextDrainFrame();
+
     int result = AVERROR(EAGAIN);
     while (result == AVERROR(EAGAIN))
     {
@@ -145,20 +150,38 @@ AVFrame *InputVideoFile::GetNextFrame()
                 return nullptr;
         }
         else if (result == AVERROR_EOF)
-            frame_ = nullptr;
+        {
+            // Begin draining
+            draining_ = true;
+            result = avcodec_send_packet(videoCodecContext_, nullptr);
+            result = avcodec_send_packet(audioCodecContext_, nullptr);
+            return GetNextDrainFrame();
+        }
         av_packet_unref(&packet_);
     }
 
     return frame_;
 }
 
+AVFrame *InputVideoFile::GetNextDrainFrame()
+{
+    int result = avcodec_receive_frame(videoCodecContext_, frame_);
+    if (result != AVERROR_EOF)
+        return frame_;
+    result = avcodec_receive_frame(audioCodecContext_, frame_);
+    if (result != AVERROR_EOF)
+        return frame_;
+    return nullptr;
+}
+
 VideoInfo InputVideoFile::GetVideoInfo()
 {
     VideoInfo v;
     v.audioTimeBase = audioCodecContext_->time_base;
-    v.bitRate = videoCodecContext_->bit_rate;
+    v.bitRate = static_cast<int>(videoCodecContext_->bit_rate);
     v.frameRate = formatContext_->streams[videoStreamIndex_]->r_frame_rate;
     v.height = videoCodecContext_->height;
+    v.streamTimeBase = formatContext_->streams[videoStreamIndex_]->time_base;
     v.videoTimeBase = videoCodecContext_->time_base;
     v.width = videoCodecContext_->width;
     return v;
@@ -168,7 +191,7 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
     filename_(filename),
     formatContext_(nullptr), videoCodecContext_(nullptr), audioCodecContext_(nullptr),
     videoStream_(nullptr), audioStream_(nullptr),
-    videoFrameCount_(1), audioFrameCount_(1)
+    videoFrameCount_(0), audioFrameCount_(0)
 {
     auto result = avformat_alloc_output_context2(&formatContext_, nullptr, nullptr, filename.c_str());
     if (result < 0 || formatContext_ == nullptr)
@@ -187,11 +210,14 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
     videoCodecContext_->height = sourceInfo.height;
     videoCodecContext_->gop_size = 12;
     videoCodecContext_->pix_fmt = AVPixelFormat::AV_PIX_FMT_YUV420P;
-    videoCodecContext_->time_base = av_inv_q(sourceInfo.frameRate);
     videoCodecContext_->framerate = sourceInfo.frameRate;
     videoStream_->avg_frame_rate = sourceInfo.frameRate;
     videoStream_->r_frame_rate = sourceInfo.frameRate;
-    videoStream_->time_base = videoCodecContext_->time_base;
+
+    videoCodecContext_->time_base = av_inv_q(sourceInfo.frameRate);
+    //videoStream_->time_base = videoCodecContext_->time_base;
+    //videoCodecContext_->time_base = sourceInfo.videoTimeBase;
+    //videoStream_->time_base = sourceInfo.streamTimeBase;
 
     if (formatContext_->oformat->flags & AVFMT_GLOBALHEADER)
         videoCodecContext_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -232,6 +258,8 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
 
 OutputVideoFile::~OutputVideoFile()
 {
+    cout << "Output frames: " << videoCodecContext_->frame_number << "(" << videoFrameCount_ << ")" << endl;
+
     av_write_trailer(formatContext_);
     avio_closep(&formatContext_->pb);
 
@@ -256,7 +284,8 @@ int OutputVideoFile::WriteNextFrame(AVFrame *frame)
     {
         codec = videoCodecContext_;
         stream = videoStream_;
-        frame->pts = videoFrameCount_;
+        //frame->pts = videoFrameCount_;
+        frame->pts = videoCodecContext_->frame_number;
         videoFrameCount_++;
     }
 
@@ -279,8 +308,7 @@ int OutputVideoFile::WriteNextFrame(AVFrame *frame)
             cerr << "Unable to encode packet: " << GetErrorString(result) << endl;
             return result;
         }
-        //if (frame->width > 0)
-            av_packet_rescale_ts(&packet, codec->time_base, stream->time_base);
+        av_packet_rescale_ts(&packet, codec->time_base, stream->time_base);
         packet.stream_index = stream->index;
         result = av_interleaved_write_frame(formatContext_, &packet);
         packetCount ++;

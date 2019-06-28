@@ -18,6 +18,7 @@ namespace DerperView
         int bitRate;
         AVRational frameRate;
         AVRational videoTimeBase;
+        AVRational streamTimeBase;
         AVRational audioTimeBase;
     };
 
@@ -29,6 +30,7 @@ namespace DerperView
 
         void Dump();
         AVFrame *GetNextFrame();
+        AVFrame *GetNextDrainFrame();
         int GetWidth() { return videoCodecContext_->width; }
         int GetHeight() { return videoCodecContext_->height; }
         AVRational GetVideoTimebase() { return videoCodecContext_->time_base; }
@@ -45,6 +47,8 @@ namespace DerperView
         int audioStreamIndex_;
         AVPacket packet_;
         AVFrame *frame_;
+        bool draining_;
+        int videoFrameCount_;
     };
 
     class OutputVideoFile

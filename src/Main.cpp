@@ -17,7 +17,7 @@ int main(int argc, char **argv)
     
     auto videoInfo = input.GetVideoInfo();
     videoInfo.width = videoInfo.width * 4 / 3;
-    videoInfo.bitRate *= 1.4;
+    videoInfo.bitRate = static_cast<int>(videoInfo.bitRate * 1.4);
     OutputVideoFile output(filename + ".out.mp4", videoInfo);
 
     int frameIndex = -1;
@@ -53,9 +53,9 @@ int main(int argc, char **argv)
             encodedFrameCount += output.WriteNextFrame(outputFrame);
 
             av_frame_free(&outputFrame);
+            frameCount++;
         }
 
-        frameCount++;
         cout << ".";
 
         frame = input.GetNextFrame();
@@ -64,6 +64,8 @@ int main(int argc, char **argv)
     output.Flush();
 
     cout << endl;
+    cout << "Encoded packet count:" << encodedFrameCount << endl;
+    cout << "Frames read: " << frameCount << endl;
 
     return 0;
 }
