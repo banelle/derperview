@@ -181,6 +181,7 @@ VideoInfo InputVideoFile::GetVideoInfo()
     v.bitRate = static_cast<int>(videoCodecContext_->bit_rate);
     v.frameRate = formatContext_->streams[videoStreamIndex_]->r_frame_rate;
     v.height = videoCodecContext_->height;
+    v.pixelFormat = videoCodecContext_->pix_fmt;
     v.streamTimeBase = formatContext_->streams[videoStreamIndex_]->time_base;
     v.totalFrames = formatContext_->streams[videoStreamIndex_]->nb_frames;
     v.videoTimeBase = videoCodecContext_->time_base;
@@ -210,7 +211,7 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
     videoCodecContext_->width = sourceInfo.width;
     videoCodecContext_->height = sourceInfo.height;
     videoCodecContext_->gop_size = 12;
-    videoCodecContext_->pix_fmt = AVPixelFormat::AV_PIX_FMT_YUV420P;
+    videoCodecContext_->pix_fmt = sourceInfo.pixelFormat;
     videoCodecContext_->framerate = sourceInfo.frameRate;
     videoStream_->avg_frame_rate = sourceInfo.frameRate;
     videoStream_->r_frame_rate = sourceInfo.frameRate;
