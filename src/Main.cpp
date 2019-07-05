@@ -14,12 +14,16 @@ const int TOTAL_THREADS = 4;
 int Go(string filename)
 {
     InputVideoFile input(filename);
+    if (input.GetLastError() != 0)
+        return input.GetLastError();
     input.Dump();
     
     auto videoInfo = input.GetVideoInfo();
     videoInfo.width = videoInfo.width * 4 / 3;
     videoInfo.bitRate = static_cast<int>(videoInfo.bitRate * 1.4);
     OutputVideoFile output(filename + ".out.mp4", videoInfo);
+    if (output.GetLastError() != 0)
+        return output.GetLastError();
 
     int64_t percentageMarker = static_cast<int64_t>(floor(static_cast<float>(videoInfo.totalFrames) / 100));
     int64_t frameCount = 0;
@@ -70,10 +74,11 @@ int Go(string filename)
             // Copy data into a contiguous buffer we can mess with
             auto copyResult = av_image_copy_to_buffer(data[threadIndex].data(), frameBufferSize, frame->data, frame->linesize, static_cast<AVPixelFormat>(frame->format), frame->width, frame->height, 1);
 
-            // Perform the stretchy stuff
+            // Set up thread to perform the stretchy stuff
             threads[threadIndex] = thread(ProcessFrameYuv, frame->width, frame->height, ref(data[threadIndex]), ref(derperviewedData[threadIndex]));
             threadIndex ++;
 
+            // If we've got all of our threads, then join the lot and write them to the output
             if (threadIndex >= TOTAL_THREADS)
             {
                 for (int i = 0; i < TOTAL_THREADS; i ++)

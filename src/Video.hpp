@@ -39,6 +39,7 @@ namespace DerperView
         AVRational GetAudioTimebase() { return audioCodecContext_->time_base; }
 
         VideoInfo GetVideoInfo();
+        int GetLastError() { return lastError_; }
 
     protected:
         std::string filename_;
@@ -51,6 +52,7 @@ namespace DerperView
         AVFrame *frame_;
         bool draining_;
         int videoFrameCount_;
+        int lastError_;
     };
 
     class OutputVideoFile
@@ -61,6 +63,7 @@ namespace DerperView
 
         int WriteNextFrame(AVFrame *frame);
         void Flush();
+        int GetLastError() { return lastError_; }
 
     protected:
         std::string filename_;
@@ -71,8 +74,8 @@ namespace DerperView
         AVStream *audioStream_;
         int videoFrameCount_;
         int audioFrameCount_;
+        int lastError_;
     };
 
-    bool DumpToPng(AVFrame *frame, std::string filename);
     std::string GetErrorString(int errorCode);
 }

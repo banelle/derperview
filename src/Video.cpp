@@ -64,18 +64,18 @@ InputVideoFile::InputVideoFile(std::string filename) :
     filename_(filename),
     formatContext_(nullptr), videoCodecContext_(nullptr), audioCodecContext_(nullptr),
     videoStreamIndex_(-1), audioStreamIndex_(-1),
-    frame_(nullptr), draining_(false)
+    frame_(nullptr), draining_(false), lastError_(0)
 {
-    auto result = avformat_open_input(&formatContext_, filename_.c_str(), nullptr, nullptr);
-    if (result < 0)
+    lastError_ = avformat_open_input(&formatContext_, filename_.c_str(), nullptr, nullptr);
+    if (lastError_ < 0)
     {
-        cerr << "Error on opening file '" << filename_ << "': " << GetErrorString(result) << endl;
+        cerr << "Error on opening file '" << filename_ << "': " << GetErrorString(lastError_) << endl;
         return;
     }
 
-    result = avformat_find_stream_info(formatContext_, nullptr);
-    if (result < 0) {
-        cerr << "Could not read streams: " << GetErrorString(result) << endl;
+    lastError_ = avformat_find_stream_info(formatContext_, nullptr);
+    if (lastError_ < 0) {
+        cerr << "Could not read streams: " << GetErrorString(lastError_) << endl;
         return;
     }
 
@@ -110,51 +110,51 @@ AVFrame *InputVideoFile::GetNextFrame()
     if (draining_)
         return GetNextDrainFrame();
 
-    int result = AVERROR(EAGAIN);
-    while (result == AVERROR(EAGAIN))
+    lastError_ = AVERROR(EAGAIN);
+    while (lastError_ == AVERROR(EAGAIN))
     {
-        result = av_read_frame(formatContext_, &packet_);
-        if (result >= 0)
+        lastError_ = av_read_frame(formatContext_, &packet_);
+        if (lastError_ >= 0)
         {
             if (packet_.stream_index == videoStreamIndex_)
             {
-                result = avcodec_send_packet(videoCodecContext_, &packet_);
-                if (result < 0)
+                lastError_ = avcodec_send_packet(videoCodecContext_, &packet_);
+                if (lastError_ < 0)
                 {
-                    cout << "*** Error sending video packet to decoder: " << GetErrorString (result) << endl;
+                    cout << "*** Error sending video packet to decoder: " << GetErrorString (lastError_) << endl;
                     return nullptr;
                 }
-                result = avcodec_receive_frame(videoCodecContext_, frame_);
-                if (result < 0 && result != AVERROR(EAGAIN))
+                lastError_ = avcodec_receive_frame(videoCodecContext_, frame_);
+                if (lastError_ < 0 && lastError_ != AVERROR(EAGAIN))
                 {
-                    cout << "*** Error getting video frame from decoder: " << GetErrorString(result) << endl;
+                    cout << "*** Error getting video frame from decoder: " << GetErrorString(lastError_) << endl;
                     return nullptr;
                 }
             }
             else if (packet_.stream_index == audioStreamIndex_)
             {
-                result = avcodec_send_packet(audioCodecContext_, &packet_);
-                if (result < 0)
+                lastError_ = avcodec_send_packet(audioCodecContext_, &packet_);
+                if (lastError_ < 0)
                 {
-                    cout << "*** Error sending audio packet to decoder" << GetErrorString(result) << endl;
+                    cout << "*** Error sending audio packet to decoder" << GetErrorString(lastError_) << endl;
                     return nullptr;
                 }
-                result = avcodec_receive_frame(audioCodecContext_, frame_);
-                if (result < 0 && result != AVERROR(EAGAIN))
+                lastError_ = avcodec_receive_frame(audioCodecContext_, frame_);
+                if (lastError_ < 0 && lastError_ != AVERROR(EAGAIN))
                 {
-                    cout << "*** Error getting audio frame from decoder: " << GetErrorString(result) << endl;
+                    cout << "*** Error getting audio frame from decoder: " << GetErrorString(lastError_) << endl;
                     return nullptr;
                 }
             }
             else
                 return nullptr;
         }
-        else if (result == AVERROR_EOF)
+        else if (lastError_ == AVERROR_EOF)
         {
             // Begin draining
             draining_ = true;
-            result = avcodec_send_packet(videoCodecContext_, nullptr);
-            result = avcodec_send_packet(audioCodecContext_, nullptr);
+            lastError_ = avcodec_send_packet(videoCodecContext_, nullptr);
+            lastError_ = avcodec_send_packet(audioCodecContext_, nullptr);
             return GetNextDrainFrame();
         }
         av_packet_unref(&packet_);
@@ -165,11 +165,11 @@ AVFrame *InputVideoFile::GetNextFrame()
 
 AVFrame *InputVideoFile::GetNextDrainFrame()
 {
-    int result = avcodec_receive_frame(videoCodecContext_, frame_);
-    if (result != AVERROR_EOF)
+    lastError_ = avcodec_receive_frame(videoCodecContext_, frame_);
+    if (lastError_ != AVERROR_EOF)
         return frame_;
-    result = avcodec_receive_frame(audioCodecContext_, frame_);
-    if (result != AVERROR_EOF)
+    lastError_ = avcodec_receive_frame(audioCodecContext_, frame_);
+    if (lastError_ != AVERROR_EOF)
         return frame_;
     return nullptr;
 }
@@ -193,12 +193,12 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
     filename_(filename),
     formatContext_(nullptr), videoCodecContext_(nullptr), audioCodecContext_(nullptr),
     videoStream_(nullptr), audioStream_(nullptr),
-    videoFrameCount_(0), audioFrameCount_(0)
+    videoFrameCount_(0), audioFrameCount_(0), lastError_(0)
 {
-    auto result = avformat_alloc_output_context2(&formatContext_, nullptr, nullptr, filename.c_str());
-    if (result < 0 || formatContext_ == nullptr)
+    lastError_ = avformat_alloc_output_context2(&formatContext_, nullptr, nullptr, filename.c_str());
+    if (lastError_ < 0 || formatContext_ == nullptr)
     {
-        cerr << "Could not create format context: " << GetErrorString(result) << endl;
+        cerr << "Could not create format context: " << GetErrorString(lastError_) << endl;
         return;
     }
 
@@ -225,10 +225,10 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
         videoCodecContext_->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
     AVDictionary *opt = nullptr;
-    result = avcodec_open2(videoCodecContext_, videoCodec, &opt);
+    lastError_ = avcodec_open2(videoCodecContext_, videoCodec, &opt);
     av_dict_free(&opt);
 
-    result = avcodec_parameters_from_context(videoStream_->codecpar, videoCodecContext_);
+    lastError_ = avcodec_parameters_from_context(videoStream_->codecpar, videoCodecContext_);
 
     AVCodec *audioCodec = avcodec_find_encoder(formatContext_->oformat->audio_codec);
     audioCodecContext_ = avcodec_alloc_context3(audioCodec);
@@ -243,18 +243,18 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
     audioStream_->time_base = audioCodecContext_->time_base;
 
     opt = nullptr;
-    result = avcodec_open2(audioCodecContext_, audioCodec, &opt);
+    lastError_ = avcodec_open2(audioCodecContext_, audioCodec, &opt);
     av_dict_free(&opt);
 
-    result = avcodec_parameters_from_context(audioStream_->codecpar, audioCodecContext_);
+    lastError_ = avcodec_parameters_from_context(audioStream_->codecpar, audioCodecContext_);
 
     av_dump_format(formatContext_, 0, filename.c_str(), 1);
 
-    result = avio_open(&formatContext_->pb, filename.c_str(), AVIO_FLAG_WRITE);
-    result = avformat_write_header(formatContext_, &opt);
-    if (result < 0)
+    lastError_ = avio_open(&formatContext_->pb, filename.c_str(), AVIO_FLAG_WRITE);
+    lastError_ = avformat_write_header(formatContext_, &opt);
+    if (lastError_ < 0)
     {
-        cerr << "Could not write container header: " << GetErrorString(result) << endl;
+        cerr << "Could not write container header: " << GetErrorString(lastError_) << endl;
     }
 }
 
@@ -291,30 +291,30 @@ int OutputVideoFile::WriteNextFrame(AVFrame *frame)
         videoFrameCount_++;
     }
 
-    auto result = avcodec_send_frame(codec, frame);
-    if (result < 0 && result != AVERROR(EAGAIN) && result != AVERROR_EOF)
+    lastError_ = avcodec_send_frame(codec, frame);
+    if (lastError_ < 0 && lastError_ != AVERROR(EAGAIN) && lastError_ != AVERROR_EOF)
     {
-        cerr << "Could not send frame to encoder: " << GetErrorString(result) << endl;
-        return result;
+        cerr << "Could not send frame to encoder: " << GetErrorString(lastError_) << endl;
+        return lastError_;
     }
 
     AVPacket packet = { 0 };
     av_init_packet(&packet);
 
     int packetCount = 0;
-    result = avcodec_receive_packet(codec, &packet);
-    while (result != AVERROR(EAGAIN))
+    lastError_ = avcodec_receive_packet(codec, &packet);
+    while (lastError_ != AVERROR(EAGAIN))
     {
-        if (result < 0)
+        if (lastError_ < 0)
         {
-            cerr << "Unable to encode packet: " << GetErrorString(result) << endl;
-            return result;
+            cerr << "Unable to encode packet: " << GetErrorString(lastError_) << endl;
+            return lastError_;
         }
         av_packet_rescale_ts(&packet, codec->time_base, stream->time_base);
         packet.stream_index = stream->index;
-        result = av_interleaved_write_frame(formatContext_, &packet);
+        lastError_ = av_interleaved_write_frame(formatContext_, &packet);
         packetCount ++;
-        result = avcodec_receive_packet(codec, &packet);
+        lastError_ = avcodec_receive_packet(codec, &packet);
     }
 
     return packetCount;
@@ -327,24 +327,24 @@ void OutputVideoFile::Flush()
 
     // Flush video
     avcodec_send_frame(videoCodecContext_, nullptr);
-    int result = avcodec_receive_packet(videoCodecContext_, &packet);
-    while (result != AVERROR_EOF)
+    lastError_ = avcodec_receive_packet(videoCodecContext_, &packet);
+    while (lastError_ != AVERROR_EOF)
     {
         av_packet_rescale_ts(&packet, videoCodecContext_->time_base, videoStream_->time_base);
         packet.stream_index = videoStream_->index;
-        result = av_interleaved_write_frame(formatContext_, &packet);
-        result = avcodec_receive_packet(videoCodecContext_, &packet);
+        lastError_ = av_interleaved_write_frame(formatContext_, &packet);
+        lastError_ = avcodec_receive_packet(videoCodecContext_, &packet);
     }
 
     // Flush audio
     avcodec_send_frame(audioCodecContext_, nullptr);
-    result = avcodec_receive_packet(audioCodecContext_, &packet);
-    while (result != AVERROR_EOF)
+    lastError_ = avcodec_receive_packet(audioCodecContext_, &packet);
+    while (lastError_ != AVERROR_EOF)
     {
         av_packet_rescale_ts(&packet, audioCodecContext_->time_base, audioStream_->time_base);
         packet.stream_index = audioStream_->index;
-        result = av_interleaved_write_frame(formatContext_, &packet);
-        result = avcodec_receive_packet(audioCodecContext_, &packet);
+        lastError_ = av_interleaved_write_frame(formatContext_, &packet);
+        lastError_ = avcodec_receive_packet(audioCodecContext_, &packet);
     }
 }
 
