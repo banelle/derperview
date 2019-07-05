@@ -11,7 +11,7 @@ using namespace DerperView;
 
 const int TOTAL_THREADS = 4;
 
-void Go(string filename)
+int Go(string filename)
 {
     InputVideoFile input(filename);
     input.Dump();
@@ -53,7 +53,7 @@ void Go(string filename)
                 if (frame->width * 3 / 4 != frame->height) // Funky looking maths to keep this int
                 {
                     cerr << "Source not in 4:3 aspect ratio" << endl;
-                    return;
+                    return 1;
                 }
 
                 frameBufferSize = av_image_get_buffer_size(static_cast<AVPixelFormat>(frame->format), frame->width, frame->height, 1);
@@ -134,26 +134,36 @@ void Go(string filename)
     output.Flush();
 
     cout << endl;
-    cout << "Encoded packet count:" << encodedFrameCount << endl;
+    cout << "Encoded packet count: " << encodedFrameCount << endl;
     cout << "Frames read: " << frameCount << endl;
 
     cout << "--------------------------------------------------------------------" << endl;
+
+    return 0;
+}
+
+void SuppressLibAvOutput(void *careface, int whatevs, const char *pfff, va_list sigh)
+{
+    // STFU
 }
 
 int main(int argc, char **argv)
 {
+    vector<string> args(argv, argv + argc);
+
+    if (find(args.begin(), args.end(), "--stfu") != args.end())
+        av_log_set_callback(&SuppressLibAvOutput);
+
     chrono::system_clock clock;
     auto startTime = clock.now();
-    string filename(argv[1]);
+    string filename(args.back());
 
-    Go(filename);
-
-    cout << "--------------------------------------------------------------------" << endl;
+    int result = Go(filename);
     
     auto endTime = clock.now();
     auto minutes = chrono::duration_cast<chrono::minutes>(endTime - startTime).count();
     auto seconds = chrono::duration_cast<chrono::seconds>(endTime - startTime).count() % 60;
     cout << "Total time: " << minutes << "m " << seconds << "s" << endl;
 
-    return 0;
+    return result;
 }
