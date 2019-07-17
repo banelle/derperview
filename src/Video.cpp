@@ -206,7 +206,7 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
     videoCodecContext_ = avcodec_alloc_context3(videoCodec);
     videoStream_ = avformat_new_stream(formatContext_, videoCodec);
 
-    videoCodecContext_->profile = FF_PROFILE_H264_MAIN;
+    videoCodecContext_->profile = FF_PROFILE_H264_HIGH;
     videoCodecContext_->bit_rate = sourceInfo.bitRate;
     videoCodecContext_->width = sourceInfo.width;
     videoCodecContext_->height = sourceInfo.height;

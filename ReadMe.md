@@ -15,7 +15,7 @@ This probably works best with visual aids, so in short it does this:
 
 ```derperview [--stfu] INPUT_FILE```
 
-Output is always H264, AAC and MP4. Input should be more flexible (in theory it'll take anything that ffmpeg can read), but if you use something with a variable framerate then wacky things will occur.
+Output is always H264, AAC and MP4. Input should be more flexible but the pixel format must be either YUV420P, or YUVJ420P. If you use something with a variable framerate then wacky things will occur.
 
 The --stfu option suppresses the naturally chatty nature of libav. By default libav will dump a bunch of information that you might not care about, and can make derperview's error messages harder to see.
 

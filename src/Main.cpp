@@ -26,6 +26,14 @@ int Go(string filename)
         cerr << "Source not in 4:3 aspect ratio" << endl;
         return 1;
     }
+    if (
+        inputVideoInfo.pixelFormat != AVPixelFormat::AV_PIX_FMT_YUV420P
+        && inputVideoInfo.pixelFormat != AVPixelFormat::AV_PIX_FMT_YUVJ420P
+    )
+    {
+        cerr << "Source not in compatible pixel format" << endl;
+        return 2;
+    }
 
     auto outputVideoInfo = inputVideoInfo; // Copy video info and tweak for output
     outputVideoInfo.width = inputVideoInfo.width * 4 / 3;
@@ -46,10 +54,11 @@ int Go(string filename)
 
     // Allocate buffers
     auto frameBufferSize = av_image_get_buffer_size(static_cast<AVPixelFormat>(inputVideoInfo.pixelFormat), inputVideoInfo.width, inputVideoInfo.height, 1);
+    auto derpBufferSize = av_image_get_buffer_size(static_cast<AVPixelFormat>(outputVideoInfo.pixelFormat), outputVideoInfo.width, outputVideoInfo.height, 1);
     for (int i = 0; i < TOTAL_THREADS; i++)
     {
         data[i].resize(frameBufferSize);
-        derperviewedData[i].resize(static_cast<int>(outputVideoInfo.height * outputVideoInfo.width * 1.5));
+        derperviewedData[i].resize(derpBufferSize);
     }
     
     cout << "--------------------------------------------------------------------" <<  endl;
@@ -67,7 +76,8 @@ int Go(string filename)
             auto copyResult = av_image_copy_to_buffer(data[threadIndex].data(), frameBufferSize, frame->data, frame->linesize, static_cast<AVPixelFormat>(frame->format), frame->width, frame->height, 1);
 
             // Set up thread to perform the stretchy stuff
-            threads[threadIndex] = thread(ProcessFrameYuv, frame->width, frame->height, ref(data[threadIndex]), ref(derperviewedData[threadIndex]));
+            if (inputVideoInfo.pixelFormat == AVPixelFormat::AV_PIX_FMT_YUV420P || inputVideoInfo.pixelFormat == AVPixelFormat::AV_PIX_FMT_YUVJ420P)
+                threads[threadIndex] = thread(ProcessFrameYuv, frame->width, frame->height, ref(data[threadIndex]), ref(derperviewedData[threadIndex]));
             threadIndex ++;
 
             // If we've got all of our threads, then join the lot and write them to the output
