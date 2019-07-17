@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cmath>
 #include <thread>
+#include <algorithm>
 #include "Process.hpp"
 #include "Video.hpp"
 
@@ -18,25 +19,38 @@ int Go(string filename)
         return input.GetLastError();
     input.Dump();
     
-    auto videoInfo = input.GetVideoInfo();
-    videoInfo.width = videoInfo.width * 4 / 3;
-    videoInfo.bitRate = static_cast<int>(videoInfo.bitRate * 1.4);
-    OutputVideoFile output(filename + ".out.mp4", videoInfo);
+    auto inputVideoInfo = input.GetVideoInfo();
+
+    if (inputVideoInfo.width * 3 / 4 != inputVideoInfo.height)
+    {
+        cerr << "Source not in 4:3 aspect ratio" << endl;
+        return 1;
+    }
+
+    auto outputVideoInfo = inputVideoInfo; // Copy video info and tweak for output
+    outputVideoInfo.width = inputVideoInfo.width * 4 / 3;
+    outputVideoInfo.bitRate = static_cast<int>(inputVideoInfo.bitRate * 1.4);
+    OutputVideoFile output(filename + ".out.mp4", outputVideoInfo);
     if (output.GetLastError() != 0)
         return output.GetLastError();
 
-    int64_t percentageMarker = static_cast<int64_t>(floor(static_cast<float>(videoInfo.totalFrames) / 100));
+    int64_t percentageMarker = static_cast<int64_t>(floor(static_cast<float>(inputVideoInfo.totalFrames) / 100));
     int64_t frameCount = 0;
-    int64_t encodedFrameCount = 0;
-    int frameBufferSize = -1;
+    int64_t encodedPacketCount = 0;
 
     AVFrame *outputFrame = nullptr;
-    vector<unsigned char> data[TOTAL_THREADS];
-    vector<unsigned char> derperviewedData[TOTAL_THREADS];
-    int targetWidth = 0;
-    int pixelFormat = -1;
-    int threadIndex = -1;
-    thread threads[TOTAL_THREADS];
+    vector<vector<unsigned char>> data(TOTAL_THREADS);
+    vector<vector<unsigned char>> derperviewedData(TOTAL_THREADS);
+    vector<thread> threads(TOTAL_THREADS);
+    int threadIndex = 0;
+
+    // Allocate buffers
+    auto frameBufferSize = av_image_get_buffer_size(static_cast<AVPixelFormat>(inputVideoInfo.pixelFormat), inputVideoInfo.width, inputVideoInfo.height, 1);
+    for (int i = 0; i < TOTAL_THREADS; i++)
+    {
+        data[i].resize(frameBufferSize);
+        derperviewedData[i].resize(static_cast<int>(outputVideoInfo.height * outputVideoInfo.width * 1.5));
+    }
     
     cout << "--------------------------------------------------------------------" <<  endl;
 
@@ -49,28 +63,6 @@ int Go(string filename)
         }
         else // Video, stretch that bad boy.
         {
-            // If this is the first video frame we've seen, set our buffers and stuff up
-            if (threadIndex == -1)
-            {
-                pixelFormat = frame->format;
-
-                if (frame->width * 3 / 4 != frame->height) // Funky looking maths to keep this int
-                {
-                    cerr << "Source not in 4:3 aspect ratio" << endl;
-                    return 1;
-                }
-
-                frameBufferSize = av_image_get_buffer_size(static_cast<AVPixelFormat>(frame->format), frame->width, frame->height, 1);
-                targetWidth = frame->width * 4 / 3;
-                for (int i = 0; i < TOTAL_THREADS; i++)
-                {
-                    data[i].resize(frameBufferSize);
-                    derperviewedData[i].resize(static_cast<int>(frame->height * targetWidth * 1.5));
-                }
-
-                threadIndex = 0;
-            }
-
             // Copy data into a contiguous buffer we can mess with
             auto copyResult = av_image_copy_to_buffer(data[threadIndex].data(), frameBufferSize, frame->data, frame->linesize, static_cast<AVPixelFormat>(frame->format), frame->width, frame->height, 1);
 
@@ -88,19 +80,19 @@ int Go(string filename)
                 {
                     // Put new data into an AVFrame
                     outputFrame = av_frame_alloc();
-                    outputFrame->width = targetWidth;
-                    outputFrame->height = frame->height;
-                    outputFrame->format = frame->format;
+                    outputFrame->width = outputVideoInfo.width;
+                    outputFrame->height = outputVideoInfo.height;
+                    outputFrame->format = outputVideoInfo.pixelFormat;
                     outputFrame->pts = frameCount;
                     av_image_fill_arrays(outputFrame->data, outputFrame->linesize, reinterpret_cast<uint8_t *>(derperviewedData[i].data()), static_cast<AVPixelFormat>(outputFrame->format), outputFrame->width, outputFrame->height, 1);
 
-                    encodedFrameCount += output.WriteNextFrame(outputFrame);
+                    encodedPacketCount += output.WriteNextFrame(outputFrame);
 
                     av_frame_free(&outputFrame);
                     frameCount++;
 
                     if (frameCount % percentageMarker == 0)
-                        cout << " " << ceil(static_cast<float>(frameCount) * 100 / videoInfo.totalFrames) << "% ";
+                        cout << " " << ceil(static_cast<float>(frameCount) * 100 / inputVideoInfo.totalFrames) << "% ";
                     else if (frameCount % 5 == 0)
                         cout << ".";
                 }
@@ -119,19 +111,19 @@ int Go(string filename)
     for (int i = 0; i < threadIndex; i++)
     {
         outputFrame = av_frame_alloc();
-        outputFrame->width = targetWidth;
-        outputFrame->height = videoInfo.height;
-        outputFrame->format = pixelFormat;
+        outputFrame->width = outputVideoInfo.width;
+        outputFrame->height = outputVideoInfo.height;
+        outputFrame->format = outputVideoInfo.pixelFormat;
         outputFrame->pts = frameCount;
         av_image_fill_arrays(outputFrame->data, outputFrame->linesize, reinterpret_cast<uint8_t *>(derperviewedData[i].data()), static_cast<AVPixelFormat>(outputFrame->format), outputFrame->width, outputFrame->height, 1);
 
-        encodedFrameCount += output.WriteNextFrame(outputFrame);
+        encodedPacketCount += output.WriteNextFrame(outputFrame);
 
         av_frame_free(&outputFrame);
         frameCount++;
 
         if (frameCount % percentageMarker == 0)
-            cout << " " << ceil(static_cast<float>(frameCount) * 100 / videoInfo.totalFrames) << "% ";
+            cout << " " << ceil(static_cast<float>(frameCount) * 100 / inputVideoInfo.totalFrames) << "% ";
         else if (frameCount % 5 == 0)
             cout << ".";
     }
@@ -139,7 +131,7 @@ int Go(string filename)
     output.Flush();
 
     cout << endl;
-    cout << "Encoded packet count: " << encodedFrameCount << endl;
+    cout << "Encoded packet count: " << encodedPacketCount << endl;
     cout << "Frames read: " << frameCount << endl;
 
     cout << "--------------------------------------------------------------------" << endl;
@@ -152,8 +144,19 @@ void SuppressLibAvOutput(void *careface, int whatevs, const char *pfff, va_list 
     // STFU
 }
 
+int Usage()
+{
+    cout << "derperview [--stfu] INPUT_FILE" << endl;
+    cout << "\t--stfu\t\tSuppress libav output" << endl;
+    cout << "\tINPUT_FILE\tInput video file" << endl;
+    return 1;
+}
+
 int main(int argc, char **argv)
 {
+    if (argc < 2)
+        return Usage();
+
     vector<string> args(argv, argv + argc);
 
     if (find(args.begin(), args.end(), "--stfu") != args.end())

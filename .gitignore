@@ -3,3 +3,5 @@ build
 .vs
 *.user
 *.filters
+lib
+etc

@@ -19,14 +19,7 @@ unordered_map<int, vector<double>> LOOKUP;
 
 int ProcessFrame(int width, int height, vector<unsigned char> &inData, vector<unsigned char> &outData)
 {
-    if (width * 3 / 4 != height) // Funky looking maths to keep this int
-    {
-        cerr << "Source not in 4:3 aspect ratio" << endl;
-        return -1;
-    }
     int targetWidth = width * 4 / 3;
-
-    outData.resize(height * targetWidth * 3);
 
     // Have we done this size before?
     if (LOOKUP.find(width) == LOOKUP.end())
