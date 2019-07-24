@@ -17,23 +17,35 @@ T Lerp(T a, T b, double t)
 
 unordered_map<int, vector<double>> LOOKUP;
 
+void BuildLookup(int width)
+{
+    // Generate lookup table
+    int targetWidth = width * 4 / 3;
+    LOOKUP[width] = vector<double>(targetWidth);
+    for (int tx = 0; tx < targetWidth; tx++)
+    {
+        double x = (static_cast<double>(tx) / targetWidth - 0.5) * 2; //  - 1 -> 1
+        double sx = tx - (targetWidth - width) / 2;
+        double offset = pow(x, 2) * (x < 0 ? -1 : 1) * ((targetWidth - width) / 2);
+        LOOKUP[width][tx] = sx - offset;
+    }
+}
+
+int GetDerpedWidth(int sourceWidth)
+{
+    int targetWidth = sourceWidth * 4 / 3;
+    if (targetWidth % 2 == 1) // Since x264 won't encode video with an odd number of pixels in a row
+        targetWidth -= 1;
+    return targetWidth;
+}
+
 int ProcessFrame(int width, int height, vector<unsigned char> &inData, vector<unsigned char> &outData)
 {
-    int targetWidth = width * 4 / 3;
+    int targetWidth = GetDerpedWidth(width);
 
     // Have we done this size before?
     if (LOOKUP.find(width) == LOOKUP.end())
-    {
-        // Generate lookup table
-        LOOKUP[width] = vector<double>(targetWidth);
-        for (int tx = 0; tx < targetWidth; tx++)
-        {
-            double x = (static_cast<double>(tx) / targetWidth - 0.5) * 2; //  - 1 -> 1
-            double sx = tx - (targetWidth - width) / 2;
-            double offset = pow(x, 2) * (x < 0 ? -1 : 1) * ((targetWidth - width) / 2);
-            LOOKUP[width][tx] = sx - offset;
-        }
-    }
+        BuildLookup(width);
 
     for (int y = 0; y < height; y++)
     {
@@ -67,21 +79,11 @@ int ProcessFrame(int width, int height, vector<unsigned char> &inData, vector<un
 
 int ProcessFrameYuv(int width, int height, std::vector<unsigned char> &inData, std::vector<unsigned char> &outData)
 {
-    int targetWidth = width * 4 / 3;
+    int targetWidth = GetDerpedWidth(width);
 
     // Have we done this size before?
     if (LOOKUP.find(width) == LOOKUP.end())
-    {
-        // Generate lookup table
-        LOOKUP[width] = vector<double>(targetWidth);
-        for (int tx = 0; tx < targetWidth; tx++)
-        {
-            double x = (static_cast<double>(tx) / targetWidth - 0.5) * 2; //  - 1 -> 1
-            double sx = tx - (targetWidth - width) / 2;
-            double offset = pow(x, 2) * (x < 0 ? -1 : 1) * ((targetWidth - width) / 2);
-            LOOKUP[width][tx] = sx - offset;
-        }
-    }
+        BuildLookup(width);
 
     const int uOffsetSource = height * width;
     const int vOffsetSource = static_cast<int>(height * width * 1.25);

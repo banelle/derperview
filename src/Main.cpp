@@ -36,7 +36,7 @@ int Go(string filename)
     }
 
     auto outputVideoInfo = inputVideoInfo; // Copy video info and tweak for output
-    outputVideoInfo.width = inputVideoInfo.width * 4 / 3;
+    outputVideoInfo.width = GetDerpedWidth(inputVideoInfo.width);
     outputVideoInfo.bitRate = static_cast<int>(inputVideoInfo.bitRate * 1.4);
     OutputVideoFile output(filename + ".out.mp4", outputVideoInfo);
     if (output.GetLastError() != 0)
