@@ -226,9 +226,16 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
 
     AVDictionary *opt = nullptr;
     lastError_ = avcodec_open2(videoCodecContext_, videoCodec, &opt);
+    if (lastError_ < 0)
+    {
+        cerr << "Error creating video codec" << endl;
+        return;
+    }
     av_dict_free(&opt);
 
     lastError_ = avcodec_parameters_from_context(videoStream_->codecpar, videoCodecContext_);
+    if (lastError_ < 0)
+        return;
 
     AVCodec *audioCodec = avcodec_find_encoder(formatContext_->oformat->audio_codec);
     audioCodecContext_ = avcodec_alloc_context3(audioCodec);
@@ -244,13 +251,25 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
 
     opt = nullptr;
     lastError_ = avcodec_open2(audioCodecContext_, audioCodec, &opt);
+    if (lastError_ < 0)
+    {
+        cerr << "Error creating audio codec" << endl;
+        return;
+    }
     av_dict_free(&opt);
 
     lastError_ = avcodec_parameters_from_context(audioStream_->codecpar, audioCodecContext_);
+    if (lastError_ < 0)
+        return;
 
     av_dump_format(formatContext_, 0, filename.c_str(), 1);
 
     lastError_ = avio_open(&formatContext_->pb, filename.c_str(), AVIO_FLAG_WRITE);
+    if (lastError_ < 0)
+    {
+        cerr << "Error opening output file" << endl;
+        return;
+    }
     lastError_ = avformat_write_header(formatContext_, &opt);
     if (lastError_ < 0)
     {
@@ -262,8 +281,11 @@ OutputVideoFile::~OutputVideoFile()
 {
     //cout << "Output frames: " << videoCodecContext_->frame_number << "(" << videoFrameCount_ << ")" << endl;
 
-    av_write_trailer(formatContext_);
-    avio_closep(&formatContext_->pb);
+    if (formatContext_->pb != nullptr)
+    {
+        av_write_trailer(formatContext_);
+        avio_closep(&formatContext_->pb);
+    }
 
     avcodec_free_context(&videoCodecContext_);
     avcodec_free_context(&audioCodecContext_);
