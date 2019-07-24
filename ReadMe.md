@@ -13,17 +13,19 @@ This probably works best with visual aids, so in short it does this:
 
 ## Usage
 
-```derperview [--stfu] INPUT_FILE```
+```derperview [--stfu] [--threads NUM] INPUT_FILE```
 
-Output is always H264, AAC and MP4. Input should be more flexible but the pixel format must be either YUV420P, or YUVJ420P. If you use something with a variable framerate then wacky things will occur.
+Output is always H264, AAC and MP4. Input should be more flexible in terms of container and codec, but the pixel format must be either YUV420P, or YUVJ420P. If you use something with a variable framerate then wacky things will occur.
 
 The --stfu option suppresses the naturally chatty nature of libav. By default libav will dump a bunch of information that you might not care about, and can make derperview's error messages harder to see.
+
+derperview uses multiple threads to speed up processing. By default it uses 4, but you can specify how many you want using the --threads parameter. Yes, you can set it to 0. Expect to wait a while for it to finish.
 
 ## Dependencies
 
 - libav (the ffmpeg fork, not the libav one)
 
-Included in the binary releases, but you'll need to download the libs if you want to build from source.
+Included in the binary releases, but you'll need to download the libs if you want to build from source. I'm currently building against Zeranoe's _ffmpeg-4.1.3-win32-shared_.
 
 ## Issues, Suggestions and Comments
 

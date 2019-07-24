@@ -10,9 +10,7 @@
 using namespace std;
 using namespace DerperView;
 
-const int TOTAL_THREADS = 4;
-
-int Go(string filename)
+int Go(string filename, const int totalThreads)
 {
     InputVideoFile input(filename);
     if (input.GetLastError() != 0)
@@ -47,20 +45,21 @@ int Go(string filename)
     int64_t encodedPacketCount = 0;
 
     AVFrame *outputFrame = nullptr;
-    vector<vector<unsigned char>> data(TOTAL_THREADS);
-    vector<vector<unsigned char>> derperviewedData(TOTAL_THREADS);
-    vector<thread> threads(TOTAL_THREADS);
+    vector<vector<unsigned char>> data(totalThreads);
+    vector<vector<unsigned char>> derperviewedData(totalThreads);
+    vector<thread> threads(totalThreads);
     int threadIndex = 0;
 
     // Allocate buffers
     auto frameBufferSize = av_image_get_buffer_size(static_cast<AVPixelFormat>(inputVideoInfo.pixelFormat), inputVideoInfo.width, inputVideoInfo.height, 1);
     auto derpBufferSize = av_image_get_buffer_size(static_cast<AVPixelFormat>(outputVideoInfo.pixelFormat), outputVideoInfo.width, outputVideoInfo.height, 1);
-    for (int i = 0; i < TOTAL_THREADS; i++)
+    for (int i = 0; i < totalThreads; i++)
     {
         data[i].resize(frameBufferSize);
         derperviewedData[i].resize(derpBufferSize);
     }
     
+    cout << "Running up with " << totalThreads << " thread" << (totalThreads > 1 ? "s" : "") << "..." << endl;
     cout << "--------------------------------------------------------------------" <<  endl;
 
     auto frame = input.GetNextFrame();
@@ -81,12 +80,12 @@ int Go(string filename)
             threadIndex ++;
 
             // If we've got all of our threads, then join the lot and write them to the output
-            if (threadIndex >= TOTAL_THREADS)
+            if (threadIndex >= totalThreads)
             {
-                for (int i = 0; i < TOTAL_THREADS; i ++)
+                for (int i = 0; i < totalThreads; i ++)
                     threads[i].join();
 
-                for (int i = 0; i < TOTAL_THREADS; i++)
+                for (int i = 0; i < totalThreads; i++)
                 {
                     // Put new data into an AVFrame
                     outputFrame = av_frame_alloc();
@@ -156,9 +155,10 @@ void SuppressLibAvOutput(void *careface, int whatevs, const char *pfff, va_list 
 
 int Usage()
 {
-    cout << "derperview [--stfu] INPUT_FILE" << endl;
-    cout << "\t--stfu\t\tSuppress libav output" << endl;
-    cout << "\tINPUT_FILE\tInput video file" << endl;
+    cout << "derperview [--stfu] [--threads NUM] INPUT_FILE" << endl;
+    cout << "    --stfu           Suppress libav output" << endl;
+    cout << "    --threads NUM    Proces using NUM threads (default: 4)" << endl;
+    cout << "    INPUT_FILE       Input video file" << endl;
     return 1;
 }
 
@@ -169,14 +169,18 @@ int main(int argc, char **argv)
 
     vector<string> args(argv, argv + argc);
 
+    int totalThreads = 4;
     if (find(args.begin(), args.end(), "--stfu") != args.end())
         av_log_set_callback(&SuppressLibAvOutput);
+    auto findParam = find(args.begin(), args.end(), "--threads");
+    if (findParam != args.end())
+        totalThreads = stoi(*(findParam + 1));
 
     chrono::system_clock clock;
     auto startTime = clock.now();
     string filename(args.back());
 
-    int result = Go(filename);
+    int result = Go(filename, totalThreads);
     
     auto endTime = clock.now();
     auto minutes = chrono::duration_cast<chrono::minutes>(endTime - startTime).count();
