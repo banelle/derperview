@@ -5,3 +5,4 @@ build
 *.filters
 lib
 etc
+*.aps
