@@ -22,6 +22,10 @@ namespace DerperView
         AVRational videoTimeBase;
         AVRational streamTimeBase;
         AVRational audioTimeBase;
+
+        int64_t audioBitRate;
+        int audioSampleRate;
+        uint64_t audioChannelLayout;
     };
 
     class InputVideoFile

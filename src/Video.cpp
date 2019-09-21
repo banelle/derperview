@@ -64,7 +64,8 @@ InputVideoFile::InputVideoFile(std::string filename) :
     filename_(filename),
     formatContext_(nullptr), videoCodecContext_(nullptr), audioCodecContext_(nullptr),
     videoStreamIndex_(-1), audioStreamIndex_(-1),
-    frame_(nullptr), draining_(false), lastError_(0)
+    frame_(nullptr), draining_(false), lastError_(0),
+    videoFrameCount_(0)
 {
     lastError_ = avformat_open_input(&formatContext_, filename_.c_str(), nullptr, nullptr);
     if (lastError_ < 0)
@@ -121,7 +122,7 @@ AVFrame *InputVideoFile::GetNextFrame()
                 lastError_ = avcodec_send_packet(videoCodecContext_, &packet_);
                 if (lastError_ < 0)
                 {
-                    cout << "*** Error sending video packet to decoder: " << GetErrorString (lastError_) << endl;
+                    cout << "*** Error sending video packet to decoder: " << GetErrorString(lastError_) << endl;
                     return nullptr;
                 }
                 lastError_ = avcodec_receive_frame(videoCodecContext_, frame_);
@@ -147,7 +148,11 @@ AVFrame *InputVideoFile::GetNextFrame()
                 }
             }
             else
-                return nullptr;
+            {
+                // Some wacky stream (GoPro has a 3rd stream for data, for example ...)
+                // Discard it.
+                lastError_ = AVERROR(EAGAIN);
+            }
         }
         else if (lastError_ == AVERROR_EOF)
         {
@@ -177,6 +182,9 @@ AVFrame *InputVideoFile::GetNextDrainFrame()
 VideoInfo InputVideoFile::GetVideoInfo()
 {
     VideoInfo v;
+    v.audioBitRate = audioCodecContext_->bit_rate;
+    v.audioChannelLayout = audioCodecContext_->channel_layout;
+    v.audioSampleRate = audioCodecContext_->sample_rate;
     v.audioTimeBase = audioCodecContext_->time_base;
     v.bitRate = static_cast<int>(videoCodecContext_->bit_rate);
     v.frameRate = formatContext_->streams[videoStreamIndex_]->r_frame_rate;
@@ -241,10 +249,10 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
     audioCodecContext_ = avcodec_alloc_context3(audioCodec);
     audioStream_ = avformat_new_stream(formatContext_, audioCodec);
 
-    audioCodecContext_->bit_rate = 128000;
-    audioCodecContext_->sample_rate = 48000;
+    audioCodecContext_->bit_rate = sourceInfo.audioBitRate;
+    audioCodecContext_->sample_rate = sourceInfo.audioSampleRate;
     audioCodecContext_->sample_fmt = audioCodec->sample_fmts[0];
-    audioCodecContext_->channel_layout = AV_CH_LAYOUT_STEREO;
+    audioCodecContext_->channel_layout = sourceInfo.audioChannelLayout;
     audioCodecContext_->channels = av_get_channel_layout_nb_channels(audioCodecContext_->channel_layout);
     audioCodecContext_->time_base = sourceInfo.audioTimeBase;
     audioStream_->time_base = audioCodecContext_->time_base;
