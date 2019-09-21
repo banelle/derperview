@@ -9,7 +9,7 @@ This probably works best with visual aids, so in short it does this:
 
 ## Download
 
-[Derperview v0.6](https://github.com/banelle/derperview/releases/download/v0.6/derperview.zip)
+[Derperview v0.6.1](https://github.com/banelle/derperview/releases/download/v0.6.1/derperview.zip)
 
 ## Usage
 
