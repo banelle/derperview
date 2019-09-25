@@ -67,6 +67,11 @@ InputVideoFile::InputVideoFile(std::string filename) :
     frame_(nullptr), draining_(false), lastError_(0),
     videoFrameCount_(0)
 {
+#if LIBAVFORMAT_VERSION_MAJOR < 58
+    // need to register all muxers, decoders, ... on ffmpeg versions before 58.x
+    av_register_all();
+#endif
+
     lastError_ = avformat_open_input(&formatContext_, filename_.c_str(), nullptr, nullptr);
     if (lastError_ < 0)
     {
