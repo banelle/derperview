@@ -68,7 +68,8 @@ InputVideoFile::InputVideoFile(std::string filename) :
     videoFrameCount_(0)
 {
 #if LIBAVFORMAT_VERSION_MAJOR < 58
-    // need to register all muxers, decoders, ... on ffmpeg versions before 58.x
+    // need to register all muxers, decoders, ... on ffmpeg versions before 58.x, see
+    // documentation and https://stackoverflow.com/questions/51604582/ffmpeg-and-docker-result-in-averror-invaliddata/51624309 
     av_register_all();
 #endif
 
