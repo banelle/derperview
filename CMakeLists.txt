@@ -1,13 +1,22 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(derperview VERSION 1.0 LANGUAGES CXX)
+project(derperview LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
-set(THREADS_PREFER_PTHREAD_FLAG TRUE)
-find_package(Threads)
+include_directories("include")
+
+if(UNIX)
+    set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+    set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+    find_package(Threads)
+endif()
+
+if(WIN32)
+    set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/ffmpeg-dev-windows/lib")
+    include_directories("${PROJECT_SOURCE_DIR}/ffmpeg-dev-windows/include")
+endif()
 
 # try to find libswscale
 find_library(LIBSWSCALE swscale)
@@ -41,7 +50,24 @@ else()
     message(STATUS "using libavutil: ${LIBAVFORMAT}")
 endif()
 
-include_directories("include")
+find_package(Git QUIET)
+if(NOT GIT_FOUND)
+    message(FATAL_ERROR "git not found")
+endif()
+execute_process(COMMAND "${GIT_EXECUTABLE}" describe --tags --always --dirty=-dirty
+    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    RESULT_VARIABLE GIT_RESULT
+    OUTPUT_VARIABLE GIT_OUTPUT
+    ERROR_VARIABLE GIT_ERROR
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(NOT GIT_RESULT EQUAL 0)
+    message(FATAL_ERROR "cannot git describe: ${GIT_RESULT} - ${GIT_ERROR}")
+endif()
+set(VERSION "${GIT_OUTPUT}")
+message(STATUS "version: ${VERSION}")
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/version.cpp)
+set(VERSION_FILE "${CMAKE_CURRENT_BINARY_DIR}/version.cpp")
 
 add_subdirectory(src)
 

@@ -1,5 +1,7 @@
 # derperview
 
+[![Build Status](https://travis-ci.com/warhog/derperview.svg?branch=master)](https://travis-ci.com/warhog/derperview)
+
 Performs a non-linear horizontal stretch to convert a 4:3 video to a 16:9 one, without the usual short-and-fat result.
 
 This probably works best with visual aids, so in short it does this:
@@ -9,11 +11,11 @@ This probably works best with visual aids, so in short it does this:
 
 ## Download
 
-[Derperview v0.6.1](https://github.com/banelle/derperview/releases/download/v0.6.1/derperview.zip)
+[Download overview](https://github.com/banelle/derperview/releases)
 
 ## Usage
 
-```derperview [--stfu] [--threads NUM] INPUT_FILE```
+```derperview [--stfu] [--threads NUM] [--output OUTPUT_FILE] INPUT_FILE```
 
 Output is always H264, AAC and MP4. Input should be more flexible in terms of container and codec, but the pixel format must be either YUV420P, or YUVJ420P. If you use something with a variable framerate then wacky things will occur.
 

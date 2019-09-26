@@ -1,0 +1,3 @@
+#include "../include/version.hpp"
+
+const std::string VERSION = "@VERSION@";
