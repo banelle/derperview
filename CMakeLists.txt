@@ -41,5 +41,7 @@ else()
     message(STATUS "using libavutil: ${LIBAVFORMAT}")
 endif()
 
+include_directories("include")
+
 add_subdirectory(src)
 
