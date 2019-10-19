@@ -1,0 +1,58 @@
+language: cpp
+
+cache: # see https://docs.travis-ci.com/user/caching/
+  - directories:
+    - $HOME/.cache
+  
+addons:
+  apt:
+    sources:
+      - george-edison55-precise-backports
+    packages:
+      - cmake-data
+      - cmake
+      - libswscale-dev
+      - libavformat-dev
+      - libavcodec-dev
+      - libavutil-dev
+      
+matrix:
+  include:
+  - os: linux
+    dist: bionic
+# disabled due to homebrew update taking too long and aborting builds
+#  - os: osx
+  - os: windows
+  
+script: ./ci-scripts/build_and_install.sh
+
+before_install:
+  # for osx get ffmpeg libs using brew
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install ffmpeg; fi
+
+  # for windows get ffmpeg libs from the sources
+  - if [ "$TRAVIS_OS_NAME" = "windows" ]; then ./ci-scripts/download-ffmpeg-windows.sh; fi
+
+git:
+  quiet: true
+
+before_deploy:
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then mv bin/derperview bin/derperview-linux64; fi
+
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then mv bin/derperview bin/derperview-osx.app; fi
+
+  # for windows get shared ffmpeg libs from the sources
+  - if [ "$TRAVIS_OS_NAME" = "windows" ]; then ./ci-scripts/package-windows.sh ; fi
+
+deploy:
+  provider: releases
+  skip_cleanup: true
+  api_key: $GITHUB_TOKEN  # set as env variable in the travis build settings page
+  file_glob: true
+  file: bin/*
+  keep_history: true
+  prerelease: true
+  overwrite: true
+  on:
+    tags: true
+

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include "Process.hpp"
 #include "Video.hpp"
+#include "version.hpp"
 #include "cxxopts.hpp"
 
 using namespace std;
@@ -104,9 +105,15 @@ int Go(const string inputFilename, const string outputFilename, const int totalT
                     frameCount++;
 
                     if (frameCount % percentageMarker == 0)
+                    {
                         cout << " " << ceil(static_cast<float>(frameCount) * 100 / inputVideoInfo.totalFrames) << "% ";
+                        cout.flush();
+                    }
                     else if (frameCount % 5 == 0)
+                    {
                         cout << ".";
+                        cout.flush();
+                    }
                 }
 
                 threadIndex = 0;
@@ -158,7 +165,7 @@ void SuppressLibAvOutput(void *careface, int whatevs, const char *pfff, va_list 
 
 int main(int argc, char **argv)
 {
-    cout << "derperview v0.6.1" << endl << endl;
+    cout << "derperview " << VERSION << endl << endl;
 
     options.add_options()
         ("i,input", "Input filename", cxxopts::value<std::string>())
