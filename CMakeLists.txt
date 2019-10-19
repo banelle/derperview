@@ -14,8 +14,8 @@ if(UNIX)
 endif()
 
 if(WIN32)
-    set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/ffmpeg-dev-windows/lib")
-    include_directories("${PROJECT_SOURCE_DIR}/ffmpeg-dev-windows/include")
+    set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-dev-windows/lib")
+    include_directories("${PROJECT_SOURCE_DIR}/lib/ffmpeg-dev-windows/include")
 endif()
 
 # try to find libswscale

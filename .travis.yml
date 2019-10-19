@@ -31,7 +31,7 @@ before_install:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install ffmpeg; fi
 
   # for windows get ffmpeg libs from the sources
-  - if [ "$TRAVIS_OS_NAME" = "windows" ]; then ./ci-scripts/download-ffmpeg-windows.sh; fi
+  - if [ "$TRAVIS_OS_NAME" = "windows" ]; then pushd ci-scripts && ./download-ffmpeg-windows.sh && popd; fi
 
 git:
   quiet: true
@@ -42,7 +42,7 @@ before_deploy:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then mv bin/derperview bin/derperview-osx.app; fi
 
   # for windows get shared ffmpeg libs from the sources
-  - if [ "$TRAVIS_OS_NAME" = "windows" ]; then ./ci-scripts/package-windows.sh ; fi
+  - if [ "$TRAVIS_OS_NAME" = "windows" ]; then pushd ci-scripts && ./package-windows.sh && popd; fi
 
 deploy:
   provider: releases

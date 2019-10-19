@@ -6,3 +6,6 @@ build
 lib
 etc
 *.aps
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
