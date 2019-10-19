@@ -1,6 +1,6 @@
 # derperview
 
-[![Build Status](https://travis-ci.com/warhog/derperview.svg?branch=master)](https://travis-ci.com/warhog/derperview)
+[![Build Status](https://travis-ci.com/banelle/derperview.svg?branch=master)](https://travis-ci.com/banelle/derperview)
 
 Performs a non-linear horizontal stretch to convert a 4:3 video to a 16:9 one, without the usual short-and-fat result.
 
