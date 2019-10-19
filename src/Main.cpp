@@ -176,9 +176,10 @@ int main(int argc, char **argv)
     ;
 
     options.parse_positional({"input"});
+    options.positional_help("INPUT_FILE");
     auto args = options.parse(argc, argv);
 
-    if (args.count("help"))
+    if (args.count("help") || !args.count("input"))
     {
       cout << options.help() << endl;
       exit(0);
