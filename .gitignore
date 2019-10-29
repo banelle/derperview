@@ -9,3 +9,9 @@ etc
 CMakeCache.txt
 CMakeFiles
 cmake_install.cmake
+*.sln
+*.vcxproj
+x64
+version.cpp
+Makefile
+src/derperview.dir

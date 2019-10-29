@@ -5,6 +5,9 @@ project(derperview LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
+
+file(MAKE_DIRECTORY bin)
 include_directories("include")
 
 if(UNIX)
@@ -15,6 +18,7 @@ endif()
 
 if(WIN32)
     set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-dev-windows/lib")
+    set(DERPERVIEW_FFMPEG_DLL_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-shared-windows/bin")
     include_directories("${PROJECT_SOURCE_DIR}/lib/ffmpeg-dev-windows/include")
 endif()
 
