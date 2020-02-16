@@ -13,6 +13,8 @@ if(WIN32)
             "${DERPERVIEW_FFMPEG_DLL_PATH}/avformat-58.dll" 
             "${DERPERVIEW_FFMPEG_DLL_PATH}/avutil-56.dll" 
             "${DERPERVIEW_FFMPEG_DLL_PATH}/swresample-3.dll"
-            "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIGURATION>"
+            "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>"
     )
 endif()
+
+install(TARGETS ${CMAKE_PROJECT_NAME} DESTINATION bin)
