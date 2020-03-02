@@ -48,10 +48,10 @@ endif()
 
 # try to find libavutil
 find_library(LIBAVUTIL avutil)
-if (NOT LIBAVFORMAT)
+if (NOT LIBAVUTIL)
     message(FATAL_ERROR "libavutil not found, on debian/ubuntu/mint systems try to install libavutil-dev")
 else()
-    message(STATUS "using libavutil: ${LIBAVFORMAT}")
+    message(STATUS "using libavutil: ${LIBAVUTIL}")
 endif()
 
 find_package(Git QUIET)

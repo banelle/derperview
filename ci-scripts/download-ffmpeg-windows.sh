@@ -1,6 +1,6 @@
 #!/bin/sh
 
-FFMPEG_VERSION=4.2.1
+FFMPEG_VERSION=4.2.2
 
 mkdir -p ../lib
 pushd ../lib
