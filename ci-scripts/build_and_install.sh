@@ -29,6 +29,12 @@ else
     fi
 fi
 
+
+if [[ "${TRAVIS_OS_NAME}" == "windows" ]]; then
+    # create bin/Release folder on windows builds
+    mkdir -p ../bin/Release
+fi
+
 echo "running build"
 cmake --build .
 if [[ $? -ne 0 ]]; then
