@@ -22,6 +22,14 @@ if(WIN32)
     include_directories("${PROJECT_SOURCE_DIR}/lib/ffmpeg-dev-windows/include")
 endif()
 
+# try to find libswresample
+find_library(LIBSWRESAMPLE swresample)
+if (NOT LIBSWRESAMPLE)
+    message(FATAL_ERROR "libswresample not found, on debian/ubuntu/mint systems try to install libswresample-dev")
+else()
+    message(STATUS "using libswresample: ${LIBSWRESAMPLE}")
+endif()
+
 # try to find libswscale
 find_library(LIBSWSCALE swscale)
 if (NOT LIBSWSCALE)

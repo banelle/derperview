@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include <algorithm>
 
 extern "C"
 {
@@ -189,7 +190,9 @@ VideoInfo InputVideoFile::GetVideoInfo()
 {
     VideoInfo v;
     v.audioBitRate = audioCodecContext_->bit_rate;
+    v.audioChannels = audioCodecContext_->channels;
     v.audioChannelLayout = audioCodecContext_->channel_layout;
+    v.audioSampleFormat = audioCodecContext_->sample_fmt;
     v.audioSampleRate = audioCodecContext_->sample_rate;
     v.audioTimeBase = audioCodecContext_->time_base;
     v.bitRate = static_cast<int>(videoCodecContext_->bit_rate);
@@ -207,6 +210,7 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
     filename_(filename),
     formatContext_(nullptr), videoCodecContext_(nullptr), audioCodecContext_(nullptr),
     videoStream_(nullptr), audioStream_(nullptr),
+    audioResampleContext_(nullptr),
     videoFrameCount_(0), audioFrameCount_(0), lastError_(0)
 {
     lastError_ = avformat_alloc_output_context2(&formatContext_, nullptr, nullptr, filename.c_str());
@@ -255,11 +259,14 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
     audioCodecContext_ = avcodec_alloc_context3(audioCodec);
     audioStream_ = avformat_new_stream(formatContext_, audioCodec);
 
-    audioCodecContext_->bit_rate = sourceInfo.audioBitRate;
+    // Populate codec data. Most of it comes from the audio source.
+    // If the channel layout is missing, populate with a default based on number of channels
+    // (seen in sowt codec on Runcam 5 Orange)
+    audioCodecContext_->bit_rate = min(static_cast<int64_t>(128000), sourceInfo.audioBitRate);
     audioCodecContext_->sample_rate = sourceInfo.audioSampleRate;
     audioCodecContext_->sample_fmt = audioCodec->sample_fmts[0];
-    audioCodecContext_->channel_layout = sourceInfo.audioChannelLayout;
-    audioCodecContext_->channels = av_get_channel_layout_nb_channels(audioCodecContext_->channel_layout);
+    audioCodecContext_->channels = sourceInfo.audioChannels;
+    audioCodecContext_->channel_layout = av_get_default_channel_layout(audioCodecContext_->channels);
     audioCodecContext_->time_base = sourceInfo.audioTimeBase;
     audioStream_->time_base = audioCodecContext_->time_base;
 
@@ -289,6 +296,27 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
     {
         cerr << "Could not write container header: " << GetErrorString(lastError_) << endl;
     }
+
+    // Create audio resampler, if needed
+    if (sourceInfo.audioSampleFormat != audioCodecContext_->sample_fmt)
+    {
+         audioResampleContext_ = swr_alloc_set_opts(
+            nullptr,
+            audioCodecContext_->channel_layout, // Output channel layout
+            audioCodecContext_->sample_fmt, // Output sample format
+            audioCodecContext_->sample_rate, // Output sample rate
+            av_get_default_channel_layout(sourceInfo.audioChannels),
+            sourceInfo.audioSampleFormat,
+            sourceInfo.audioSampleRate,
+            0, nullptr
+        );
+
+        lastError_ = swr_init(audioResampleContext_);
+        if (lastError_ < 0)
+        {
+            cerr << "Could not set up audio format resampling: " << GetErrorString(lastError_) << endl;
+        }
+    }
 }
 
 OutputVideoFile::~OutputVideoFile()
@@ -301,6 +329,11 @@ OutputVideoFile::~OutputVideoFile()
         avio_closep(&formatContext_->pb);
     }
 
+    if (audioResampleContext_ != nullptr)
+    {
+        swr_free(&audioResampleContext_);
+    }
+
     avcodec_free_context(&videoCodecContext_);
     avcodec_free_context(&audioCodecContext_);
     avformat_free_context(formatContext_);
@@ -310,6 +343,8 @@ int OutputVideoFile::WriteNextFrame(AVFrame *frame)
 {
     AVCodecContext *codec = nullptr;
     AVStream *stream = nullptr;
+    AVFrame *conversionFrame = nullptr;
+
     if (frame->width == 0)
     {
         codec = audioCodecContext_;
@@ -317,6 +352,26 @@ int OutputVideoFile::WriteNextFrame(AVFrame *frame)
         //frame->pts = av_rescale_q(frame->pts, AVRational { 1, audioCodecContext_->sample_rate }, audioCodecContext_->time_base);
         //frame->pts = audioFrameCount_;
         audioFrameCount_++;
+
+        if (audioResampleContext_ != nullptr)
+        {
+            // the source layout may be 0. 0 is invalid input for the resampler. If we then pass
+            // 0 in here, it complains that the format is incorrect, so we lie at both ends
+            frame->channel_layout = av_get_default_channel_layout(frame->channels);
+
+            conversionFrame = av_frame_alloc();
+            conversionFrame->channel_layout = audioCodecContext_->channel_layout;
+            conversionFrame->sample_rate = audioCodecContext_->sample_rate;
+            conversionFrame->format = audioCodecContext_->sample_fmt;
+            conversionFrame->pts = frame->pts;
+
+            lastError_ = swr_convert_frame(audioResampleContext_, conversionFrame, frame);
+            if (lastError_ < 0)
+            {
+                cerr << "Could not resample audio frame: " << GetErrorString(lastError_) << endl;
+                return lastError_;
+            }
+        }
     }
     else
     {
@@ -327,7 +382,11 @@ int OutputVideoFile::WriteNextFrame(AVFrame *frame)
         videoFrameCount_++;
     }
 
-    lastError_ = avcodec_send_frame(codec, frame);
+    if (conversionFrame != nullptr)
+        lastError_ = avcodec_send_frame(codec, conversionFrame);
+    else
+        lastError_ = avcodec_send_frame(codec, frame);
+
     if (lastError_ < 0 && lastError_ != AVERROR(EAGAIN) && lastError_ != AVERROR_EOF)
     {
         cerr << "Could not send frame to encoder: " << GetErrorString(lastError_) << endl;
@@ -351,6 +410,12 @@ int OutputVideoFile::WriteNextFrame(AVFrame *frame)
         lastError_ = av_interleaved_write_frame(formatContext_, &packet);
         packetCount ++;
         lastError_ = avcodec_receive_packet(codec, &packet);
+    }
+
+    // If we had to cook the books on audio frames, make sure we clean up after ourselves
+    if (conversionFrame != nullptr)
+    {
+        av_frame_free(&conversionFrame);
     }
 
     return packetCount;

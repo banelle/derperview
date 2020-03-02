@@ -4,6 +4,7 @@ extern "C"
     #include "libavcodec/avcodec.h"
     #include "libavutil/common.h"
     #include "libavutil/imgutils.h"
+    #include "libswresample/swresample.h"
 }
 
 #include <string>
@@ -26,6 +27,8 @@ namespace DerperView
         int64_t audioBitRate;
         int audioSampleRate;
         uint64_t audioChannelLayout;
+        int audioChannels;
+        AVSampleFormat audioSampleFormat;
     };
 
     class InputVideoFile
@@ -76,6 +79,7 @@ namespace DerperView
         AVCodecContext *audioCodecContext_;
         AVStream *videoStream_;
         AVStream *audioStream_;
+        SwrContext *audioResampleContext_;
         int videoFrameCount_;
         int audioFrameCount_;
         int lastError_;
