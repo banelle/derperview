@@ -49,9 +49,11 @@ before_deploy:
 
 deploy:
   provider: releases
-  token: $GITHUB_TOKEN  # set as env variable in the travis build settings page
+  api_key:
+    secure: $GITHUB_API_KEY
   file_glob: true
   file: deploy/*
+  skip_cleanup: true
   draft: true
   overwrite: true
   on:
