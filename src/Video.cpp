@@ -24,7 +24,7 @@ int SetupContextWorker(AVFormatContext *formatContext, AVCodecContext **codecCon
     int streamIndex = result;
 
     AVStream *stream = formatContext->streams[streamIndex];
-    AVCodec *decoder = avcodec_find_decoder(stream->codecpar->codec_id);
+    const AVCodec *decoder = avcodec_find_decoder(stream->codecpar->codec_id);
     if (!decoder)
     {
         cerr << "Failed to find codec: " << av_get_media_type_string(type) << ": " << GetErrorString(result) << endl;
@@ -65,7 +65,7 @@ InputVideoFile::InputVideoFile(std::string filename) :
     filename_(filename),
     formatContext_(nullptr), videoCodecContext_(nullptr), audioCodecContext_(nullptr),
     videoStreamIndex_(-1), audioStreamIndex_(-1),
-    frame_(nullptr), draining_(false), lastError_(0),
+    frame_(nullptr), packet_(nullptr), draining_(false), lastError_(0),
     videoFrameCount_(0)
 {
 #if LIBAVFORMAT_VERSION_MAJOR < 58
@@ -91,9 +91,7 @@ InputVideoFile::InputVideoFile(std::string filename) :
     audioStreamIndex_ = SetupAudioContext(formatContext_, &audioCodecContext_);
 
     frame_ = av_frame_alloc();
-    av_init_packet(&packet_);
-    packet_.data = nullptr;
-    packet_.size = 0;
+    packet_ = av_packet_alloc();
 }
 
 InputVideoFile::~InputVideoFile()
@@ -101,6 +99,7 @@ InputVideoFile::~InputVideoFile()
     //cout << "Input frames: " << videoCodecContext_->frame_number << endl;
 
     av_frame_free(&frame_);
+    av_packet_free(&packet_);
     avcodec_free_context(&videoCodecContext_);
     avcodec_free_context(&audioCodecContext_);
     avformat_close_input(&formatContext_);
@@ -121,12 +120,12 @@ AVFrame *InputVideoFile::GetNextFrame()
     lastError_ = AVERROR(EAGAIN);
     while (lastError_ == AVERROR(EAGAIN))
     {
-        lastError_ = av_read_frame(formatContext_, &packet_);
+        lastError_ = av_read_frame(formatContext_, packet_);
         if (lastError_ >= 0)
         {
-            if (packet_.stream_index == videoStreamIndex_)
+            if (packet_->stream_index == videoStreamIndex_)
             {
-                lastError_ = avcodec_send_packet(videoCodecContext_, &packet_);
+                lastError_ = avcodec_send_packet(videoCodecContext_, packet_);
                 if (lastError_ < 0)
                 {
                     cout << "*** Error sending video packet to decoder: " << GetErrorString(lastError_) << endl;
@@ -139,9 +138,9 @@ AVFrame *InputVideoFile::GetNextFrame()
                     return nullptr;
                 }
             }
-            else if (packet_.stream_index == audioStreamIndex_)
+            else if (packet_->stream_index == audioStreamIndex_)
             {
-                lastError_ = avcodec_send_packet(audioCodecContext_, &packet_);
+                lastError_ = avcodec_send_packet(audioCodecContext_, packet_);
                 if (lastError_ < 0)
                 {
                     cout << "*** Error sending audio packet to decoder" << GetErrorString(lastError_) << endl;
@@ -166,10 +165,11 @@ AVFrame *InputVideoFile::GetNextFrame()
             // Begin draining
             draining_ = true;
             lastError_ = avcodec_send_packet(videoCodecContext_, nullptr);
-            lastError_ = avcodec_send_packet(audioCodecContext_, nullptr);
+            if (audioCodecContext_ != nullptr)
+                lastError_ = avcodec_send_packet(audioCodecContext_, nullptr);
             return GetNextDrainFrame();
         }
-        av_packet_unref(&packet_);
+        av_packet_unref(packet_);
     }
 
     return frame_;
@@ -180,21 +180,27 @@ AVFrame *InputVideoFile::GetNextDrainFrame()
     lastError_ = avcodec_receive_frame(videoCodecContext_, frame_);
     if (lastError_ != AVERROR_EOF)
         return frame_;
-    lastError_ = avcodec_receive_frame(audioCodecContext_, frame_);
-    if (lastError_ != AVERROR_EOF)
-        return frame_;
+    if (audioCodecContext_ != nullptr)
+    {
+        lastError_ = avcodec_receive_frame(audioCodecContext_, frame_);
+        if (lastError_ != AVERROR_EOF)
+            return frame_;
+    }
     return nullptr;
 }
 
 VideoInfo InputVideoFile::GetVideoInfo()
 {
     VideoInfo v;
-    v.audioBitRate = audioCodecContext_->bit_rate;
-    v.audioChannels = audioCodecContext_->channels;
-    v.audioChannelLayout = audioCodecContext_->channel_layout;
-    v.audioSampleFormat = audioCodecContext_->sample_fmt;
-    v.audioSampleRate = audioCodecContext_->sample_rate;
-    v.audioTimeBase = audioCodecContext_->time_base;
+    if (audioCodecContext_ != nullptr)
+    {
+        v.audioBitRate = audioCodecContext_->bit_rate;
+        v.audioChannels = audioCodecContext_->ch_layout.nb_channels;
+        v.audioChannelLayout = audioCodecContext_->ch_layout;
+        v.audioSampleFormat = audioCodecContext_->sample_fmt;
+        v.audioSampleRate = audioCodecContext_->sample_rate;
+        v.audioTimeBase = audioCodecContext_->time_base;
+    }
     v.bitRate = static_cast<int>(videoCodecContext_->bit_rate);
     v.frameRate = formatContext_->streams[videoStreamIndex_]->r_frame_rate;
     v.height = videoCodecContext_->height;
@@ -220,7 +226,7 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
         return;
     }
 
-    AVCodec *videoCodec = avcodec_find_encoder(formatContext_->oformat->video_codec);
+    const AVCodec *videoCodec = avcodec_find_encoder(formatContext_->oformat->video_codec);
     videoCodecContext_ = avcodec_alloc_context3(videoCodec);
     videoStream_ = avformat_new_stream(formatContext_, videoCodec);
 
@@ -255,33 +261,35 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
     if (lastError_ < 0)
         return;
 
-    AVCodec *audioCodec = avcodec_find_encoder(formatContext_->oformat->audio_codec);
-    audioCodecContext_ = avcodec_alloc_context3(audioCodec);
-    audioStream_ = avformat_new_stream(formatContext_, audioCodec);
-
-    // Populate codec data. Most of it comes from the audio source.
-    // If the channel layout is missing, populate with a default based on number of channels
-    // (seen in sowt codec on Runcam 5 Orange)
-    audioCodecContext_->bit_rate = min(static_cast<int64_t>(128000), sourceInfo.audioBitRate);
-    audioCodecContext_->sample_rate = sourceInfo.audioSampleRate;
-    audioCodecContext_->sample_fmt = audioCodec->sample_fmts[0];
-    audioCodecContext_->channels = sourceInfo.audioChannels;
-    audioCodecContext_->channel_layout = av_get_default_channel_layout(audioCodecContext_->channels);
-    audioCodecContext_->time_base = sourceInfo.audioTimeBase;
-    audioStream_->time_base = audioCodecContext_->time_base;
-
-    opt = nullptr;
-    lastError_ = avcodec_open2(audioCodecContext_, audioCodec, &opt);
-    if (lastError_ < 0)
+    if (sourceInfo.audioChannels > 0)
     {
-        cerr << "Error creating audio codec" << endl;
-        return;
-    }
-    av_dict_free(&opt);
+        const AVCodec* audioCodec = avcodec_find_encoder(formatContext_->oformat->audio_codec);
+        audioCodecContext_ = avcodec_alloc_context3(audioCodec);
+        audioStream_ = avformat_new_stream(formatContext_, audioCodec);
 
-    lastError_ = avcodec_parameters_from_context(audioStream_->codecpar, audioCodecContext_);
-    if (lastError_ < 0)
-        return;
+        // Populate codec data. Most of it comes from the audio source.
+        // If the channel layout is missing, populate with a default based on number of channels
+        // (seen in sowt codec on Runcam 5 Orange)
+        audioCodecContext_->bit_rate = min(static_cast<int64_t>(128000), sourceInfo.audioBitRate);
+        audioCodecContext_->sample_rate = sourceInfo.audioSampleRate;
+        audioCodecContext_->sample_fmt = audioCodec->sample_fmts[0];
+        av_channel_layout_default(&audioCodecContext_->ch_layout, sourceInfo.audioChannels);
+        audioCodecContext_->time_base = sourceInfo.audioTimeBase;
+        audioStream_->time_base = audioCodecContext_->time_base;
+
+        opt = nullptr;
+        lastError_ = avcodec_open2(audioCodecContext_, audioCodec, &opt);
+        if (lastError_ < 0)
+        {
+            cerr << "Error creating audio codec" << endl;
+            return;
+        }
+        av_dict_free(&opt);
+
+        lastError_ = avcodec_parameters_from_context(audioStream_->codecpar, audioCodecContext_);
+        if (lastError_ < 0)
+            return;
+    }
 
     av_dump_format(formatContext_, 0, filename.c_str(), 1);
 
@@ -298,23 +306,26 @@ OutputVideoFile::OutputVideoFile(string filename, VideoInfo sourceInfo) :
     }
 
     // Create audio resampler, if needed
-    if (sourceInfo.audioSampleFormat != audioCodecContext_->sample_fmt)
+    if (audioCodecContext_ != nullptr)
     {
-         audioResampleContext_ = swr_alloc_set_opts(
-            nullptr,
-            audioCodecContext_->channel_layout, // Output channel layout
-            audioCodecContext_->sample_fmt, // Output sample format
-            audioCodecContext_->sample_rate, // Output sample rate
-            av_get_default_channel_layout(sourceInfo.audioChannels),
-            sourceInfo.audioSampleFormat,
-            sourceInfo.audioSampleRate,
-            0, nullptr
-        );
-
-        lastError_ = swr_init(audioResampleContext_);
-        if (lastError_ < 0)
+        if (sourceInfo.audioSampleFormat != audioCodecContext_->sample_fmt)
         {
-            cerr << "Could not set up audio format resampling: " << GetErrorString(lastError_) << endl;
+            swr_alloc_set_opts2(
+                &audioResampleContext_,
+                &audioCodecContext_->ch_layout,
+                audioCodecContext_->sample_fmt,
+                audioCodecContext_->sample_rate,
+                &sourceInfo.audioChannelLayout,
+                sourceInfo.audioSampleFormat,
+                sourceInfo.audioSampleRate,
+                0, nullptr
+            );
+
+            lastError_ = swr_init(audioResampleContext_);
+            if (lastError_ < 0)
+            {
+                cerr << "Could not set up audio format resampling: " << GetErrorString(lastError_) << endl;
+            }
         }
     }
 }
@@ -357,10 +368,10 @@ int OutputVideoFile::WriteNextFrame(AVFrame *frame)
         {
             // the source layout may be 0. 0 is invalid input for the resampler. If we then pass
             // 0 in here, it complains that the format is incorrect, so we lie at both ends
-            frame->channel_layout = av_get_default_channel_layout(frame->channels);
+            av_channel_layout_default(&frame->ch_layout, audioCodecContext_->ch_layout.nb_channels);
 
             conversionFrame = av_frame_alloc();
-            conversionFrame->channel_layout = audioCodecContext_->channel_layout;
+            conversionFrame->ch_layout = audioCodecContext_->ch_layout;
             conversionFrame->sample_rate = audioCodecContext_->sample_rate;
             conversionFrame->format = audioCodecContext_->sample_fmt;
             conversionFrame->pts = frame->pts;
@@ -393,11 +404,10 @@ int OutputVideoFile::WriteNextFrame(AVFrame *frame)
         return lastError_;
     }
 
-    AVPacket packet = { 0 };
-    av_init_packet(&packet);
+    AVPacket* packet = av_packet_alloc();
 
     int packetCount = 0;
-    lastError_ = avcodec_receive_packet(codec, &packet);
+    lastError_ = avcodec_receive_packet(codec, packet);
     while (lastError_ != AVERROR(EAGAIN))
     {
         if (lastError_ < 0)
@@ -405,11 +415,11 @@ int OutputVideoFile::WriteNextFrame(AVFrame *frame)
             cerr << "Unable to encode packet: " << GetErrorString(lastError_) << endl;
             return lastError_;
         }
-        av_packet_rescale_ts(&packet, codec->time_base, stream->time_base);
-        packet.stream_index = stream->index;
-        lastError_ = av_interleaved_write_frame(formatContext_, &packet);
+        av_packet_rescale_ts(packet, codec->time_base, stream->time_base);
+        packet->stream_index = stream->index;
+        lastError_ = av_interleaved_write_frame(formatContext_, packet);
         packetCount ++;
-        lastError_ = avcodec_receive_packet(codec, &packet);
+        lastError_ = avcodec_receive_packet(codec, packet);
     }
 
     // If we had to cook the books on audio frames, make sure we clean up after ourselves
@@ -418,35 +428,41 @@ int OutputVideoFile::WriteNextFrame(AVFrame *frame)
         av_frame_free(&conversionFrame);
     }
 
+    av_packet_free(&packet);
+
     return packetCount;
 }
 
 void OutputVideoFile::Flush()
 {
-    AVPacket packet = { 0 };
-    av_init_packet(&packet);
+    auto packet = av_packet_alloc();
 
     // Flush video
     avcodec_send_frame(videoCodecContext_, nullptr);
-    lastError_ = avcodec_receive_packet(videoCodecContext_, &packet);
+    lastError_ = avcodec_receive_packet(videoCodecContext_, packet);
     while (lastError_ != AVERROR_EOF)
     {
-        av_packet_rescale_ts(&packet, videoCodecContext_->time_base, videoStream_->time_base);
-        packet.stream_index = videoStream_->index;
-        lastError_ = av_interleaved_write_frame(formatContext_, &packet);
-        lastError_ = avcodec_receive_packet(videoCodecContext_, &packet);
+        av_packet_rescale_ts(packet, videoCodecContext_->time_base, videoStream_->time_base);
+        packet->stream_index = videoStream_->index;
+        lastError_ = av_interleaved_write_frame(formatContext_, packet);
+        lastError_ = avcodec_receive_packet(videoCodecContext_, packet);
     }
 
     // Flush audio
-    avcodec_send_frame(audioCodecContext_, nullptr);
-    lastError_ = avcodec_receive_packet(audioCodecContext_, &packet);
-    while (lastError_ != AVERROR_EOF)
+    if (audioCodecContext_ != nullptr)
     {
-        av_packet_rescale_ts(&packet, audioCodecContext_->time_base, audioStream_->time_base);
-        packet.stream_index = audioStream_->index;
-        lastError_ = av_interleaved_write_frame(formatContext_, &packet);
-        lastError_ = avcodec_receive_packet(audioCodecContext_, &packet);
+        avcodec_send_frame(audioCodecContext_, nullptr);
+        lastError_ = avcodec_receive_packet(audioCodecContext_, packet);
+        while (lastError_ != AVERROR_EOF)
+        {
+            av_packet_rescale_ts(packet, audioCodecContext_->time_base, audioStream_->time_base);
+            packet->stream_index = audioStream_->index;
+            lastError_ = av_interleaved_write_frame(formatContext_, packet);
+            lastError_ = avcodec_receive_packet(audioCodecContext_, packet);
+        }
     }
+
+    av_packet_free(&packet);
 }
 
 string DerperView::GetErrorString(int errorCode)

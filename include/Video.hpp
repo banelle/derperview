@@ -26,7 +26,7 @@ namespace DerperView
 
         int64_t audioBitRate;
         int audioSampleRate;
-        uint64_t audioChannelLayout;
+        AVChannelLayout audioChannelLayout;
         int audioChannels;
         AVSampleFormat audioSampleFormat;
     };
@@ -55,7 +55,7 @@ namespace DerperView
         AVCodecContext *audioCodecContext_;
         int videoStreamIndex_;
         int audioStreamIndex_;
-        AVPacket packet_;
+        AVPacket *packet_;
         AVFrame *frame_;
         bool draining_;
         int videoFrameCount_;

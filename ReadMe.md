@@ -27,7 +27,7 @@ derperview uses multiple threads to speed up processing. By default it uses 4, b
 
 - libav (the ffmpeg fork, not the libav one)
 
-Included in the binary releases, but you'll need to download the libs if you want to build from source. I'm currently building against Zeranoe's _ffmpeg-4.2.2-win64-shared_.
+Included in the binary releases, but you'll need to download the libs if you want to build from source. I'm currently building against Gyan Doshi's _ffmpeg-5.1.2-full_build-shared_ for Windows.
 
 ## Issues, Suggestions and Comments
 

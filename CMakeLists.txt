@@ -17,9 +17,9 @@ if(UNIX)
 endif()
 
 if(WIN32)
-    set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-dev-windows/lib")
-    set(DERPERVIEW_FFMPEG_DLL_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-shared-windows/bin")
-    include_directories("${PROJECT_SOURCE_DIR}/lib/ffmpeg-dev-windows/include")
+    set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/lib")
+    set(DERPERVIEW_FFMPEG_DLL_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/bin")
+    include_directories("${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/include")
 endif()
 
 # try to find libswresample
