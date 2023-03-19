@@ -1,9 +1,9 @@
-add_executable(${CMAKE_PROJECT_NAME} Main.cpp Process.cpp Video.cpp ${VERSION_FILE})
+add_executable(${CMAKE_PROJECT_NAME} Main.cpp ${VERSION_FILE})
 
 if (UNIX)
-    target_link_libraries(${CMAKE_PROJECT_NAME} Threads::Threads ${LIBAVUTIL} ${LIBAVCODEC} ${LIBAVFORMAT} ${LIBSWRESAMPLE})
+    target_link_libraries(${CMAKE_PROJECT_NAME} Threads::Threads lib${CMAKE_PROJECT_NAME})
 else()
-    target_link_libraries(${CMAKE_PROJECT_NAME} ${LIBAVUTIL} ${LIBAVCODEC} ${LIBAVFORMAT} ${LIBSWRESAMPLE})
+    target_link_libraries(${CMAKE_PROJECT_NAME} lib${CMAKE_PROJECT_NAME})
 endif()
 
 if(WIN32)

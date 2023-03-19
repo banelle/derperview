@@ -14,4 +14,5 @@ cmake_install.cmake
 x64
 version.cpp
 Makefile
-src/derperview.dir
+src/derperview/derperview.dir
+src/libderperview/libderperview.dir
