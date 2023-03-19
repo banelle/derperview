@@ -16,5 +16,3 @@ if(WIN32)
             "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>"
     )
 endif()
-
-install(TARGETS ${CMAKE_PROJECT_NAME} DESTINATION bin)

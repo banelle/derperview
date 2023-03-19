@@ -5,5 +5,3 @@ if (UNIX)
 else()
     target_link_libraries(lib${CMAKE_PROJECT_NAME} ${LIBAVUTIL} ${LIBAVCODEC} ${LIBAVFORMAT} ${LIBSWRESAMPLE})
 endif()
-
-install(TARGETS lib${CMAKE_PROJECT_NAME} DESTINATION bin)
