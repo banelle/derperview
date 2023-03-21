@@ -1,4 +1,4 @@
-add_library(lib${CMAKE_PROJECT_NAME} STATIC Entry.cpp Process.cpp Video.cpp ${VERSION_FILE})
+add_library(lib${CMAKE_PROJECT_NAME} STATIC Entry.cpp Process.cpp Video.cpp Process.hpp Video.hpp ${VERSION_FILE})
 
 if (UNIX)
     target_link_libraries(lib${CMAKE_PROJECT_NAME} Threads::Threads ${LIBAVUTIL} ${LIBAVCODEC} ${LIBAVFORMAT} ${LIBSWRESAMPLE})

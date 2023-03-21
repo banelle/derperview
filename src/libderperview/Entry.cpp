@@ -28,7 +28,7 @@ int Go(const string inputFilename, const string outputFilename, const int totalT
     }
 
     auto outputVideoInfo = inputVideoInfo; // Copy video info and tweak for output
-    outputVideoInfo.width = GetDerpedWidth(inputVideoInfo.width);
+    outputVideoInfo.width = Process::GetDerpedWidth(inputVideoInfo.width);
     outputVideoInfo.bitRate = static_cast<int>(inputVideoInfo.bitRate * 1.4);
     OutputVideoFile output(outputFilename, outputVideoInfo);
     if (output.GetLastError() != 0)
@@ -52,6 +52,8 @@ int Go(const string inputFilename, const string outputFilename, const int totalT
         data[i].resize(frameBufferSize);
         derperviewedData[i].resize(derpBufferSize);
     }
+
+    unique_ptr<Process> process = make_unique<CpuProcess>(inputVideoInfo.width, inputVideoInfo.height);
     
     cout << "Running up with " << totalThreads << " thread" << (totalThreads > 1 ? "s" : "") << "..." << endl;
     cout << "--------------------------------------------------------------------" <<  endl;
@@ -70,7 +72,7 @@ int Go(const string inputFilename, const string outputFilename, const int totalT
 
             // Set up thread to perform the stretchy stuff
             if (inputVideoInfo.pixelFormat == AVPixelFormat::AV_PIX_FMT_YUV420P || inputVideoInfo.pixelFormat == AVPixelFormat::AV_PIX_FMT_YUVJ420P)
-                threads[threadIndex] = thread(ProcessFrameYuv, frame->width, frame->height, ref(data[threadIndex]), ref(derperviewedData[threadIndex]));
+                threads[threadIndex] = thread(&Process::DerpIt, ref(*process), ref(data[threadIndex]), ref(derperviewedData[threadIndex]));
             threadIndex ++;
 
             // If we've got all of our threads, then join the lot and write them to the output
