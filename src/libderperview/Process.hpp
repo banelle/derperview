@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 
 namespace DerperView
@@ -5,25 +7,25 @@ namespace DerperView
     class Process
     {
     public:
-        Process(int width, int height) : width_(width), height_(height) { }
+        Process(unsigned int width, unsigned int height);
+
         virtual ~Process() { };
 
         virtual int DerpIt(std::vector<unsigned char>& inData, std::vector<unsigned char>& outData) = 0;
         static int GetDerpedWidth(int sourceWidth);
 
     protected:
-        int width_;
-        int height_;
+        unsigned int sourceWidth_;
+        unsigned int targetWidth_;
+        unsigned int height_;
+        std::vector<float> lookup_;
     };
     
     class CpuProcess : public Process
     {
     public:
-        CpuProcess(int width, int height);
+        CpuProcess(unsigned int width, unsigned int height) : Process(width, height) { }
 
         virtual int DerpIt(std::vector<unsigned char>& inData, std::vector<unsigned char>& outData) override;
-
-    private:
-        std::vector<double> lookup_;
     };
 }
