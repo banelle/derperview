@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/lib")
 
 file(MAKE_DIRECTORY bin)
 include_directories("include")
@@ -78,8 +79,8 @@ endif()
 set(VERSION "${GIT_OUTPUT}")
 message(STATUS "version: ${VERSION}")
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/version.cpp)
-set(VERSION_FILE "${CMAKE_CURRENT_BINARY_DIR}/version.cpp")
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/src/version.cpp)
+set(VERSION_FILE "${CMAKE_CURRENT_BINARY_DIR}/src/version.cpp")
 
-add_subdirectory(src)
-
+add_subdirectory(src/libderperview)
+add_subdirectory(src/derperview)
