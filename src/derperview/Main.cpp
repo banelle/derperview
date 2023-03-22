@@ -32,6 +32,7 @@ int main(int argc, char** argv)
         ("o,output", "Output filename (default: INPUT_FILE + .out.mp4)", cxxopts::value<std::string>())
         ("q,stfu", "Suppress libav output", cxxopts::value<bool>()->default_value("false"))
         ("t,threads", "Process using given number of threads (default: 4)", cxxopts::value<unsigned int>())
+        ("g,gpu", "(EXPERIMENTAL) Attempt to run on the GPU", cxxopts::value<bool>()->default_value("false"))
         ("h,help", "Print help")
         ;
 
@@ -88,7 +89,7 @@ int main(int argc, char** argv)
     chrono::system_clock clock;
     auto startTime = clock.now();
 
-    int result = Go(inputFilename, outputFilename, totalThreads);
+    int result = Go(inputFilename, outputFilename, totalThreads, args["gpu"].as<bool>());
 
     auto endTime = clock.now();
     auto minutes = chrono::duration_cast<chrono::minutes>(endTime - startTime).count();

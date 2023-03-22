@@ -18,9 +18,9 @@ if(UNIX)
 endif()
 
 if(WIN32)
-    set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/lib")
+    set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/lib;${PROJECT_SOURCE_DIR}/lib/opencl")
     set(DERPERVIEW_FFMPEG_DLL_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/bin")
-    include_directories("${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/include")
+    include_directories("${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/include;${PROJECT_SOURCE_DIR}/lib/opencl/include")
 endif()
 
 # try to find libswresample
@@ -61,6 +61,14 @@ if (NOT LIBAVUTIL)
     message(FATAL_ERROR "libavutil not found, on debian/ubuntu/mint systems try to install libavutil-dev")
 else()
     message(STATUS "using libavutil: ${LIBAVUTIL}")
+endif()
+
+# try to find OpenCL
+find_library(LIBOPENCL opencl)
+if (NOT LIBOPENCL)
+    message(FATAL_ERROR "opencl not found, good luck")
+else()
+    message(STATUS "using opencl: ${LIBOPENCL}")
 endif()
 
 find_package(Git QUIET)

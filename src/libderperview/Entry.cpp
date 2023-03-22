@@ -4,12 +4,13 @@
 #include <thread>
 #include <algorithm>
 #include "Process.hpp"
+#include "GpuProcess.hpp"
 #include "Video.hpp"
 
 using namespace std;
 using namespace DerperView;
 
-int Go(const string inputFilename, const string outputFilename, const int totalThreads)
+int Go(const string inputFilename, const string outputFilename, const int totalThreads, const bool runOnGpu)
 {
     InputVideoFile input(inputFilename);
     if (input.GetLastError() != 0)
@@ -53,8 +54,16 @@ int Go(const string inputFilename, const string outputFilename, const int totalT
         derperviewedData[i].resize(derpBufferSize);
     }
 
-    unique_ptr<Process> process = make_unique<CpuProcess>(inputVideoInfo.width, inputVideoInfo.height);
-    
+    unique_ptr<Process> process = nullptr;
+    if (runOnGpu)
+    {
+        process = make_unique<GpuProcess>(inputVideoInfo.width, inputVideoInfo.height);
+    }
+    else
+    {
+        process = make_unique<CpuProcess>(inputVideoInfo.width, inputVideoInfo.height);
+    }
+
     cout << "Running up with " << totalThreads << " thread" << (totalThreads > 1 ? "s" : "") << "..." << endl;
     cout << "--------------------------------------------------------------------" <<  endl;
 
