@@ -3,13 +3,14 @@
 #include <cmath>
 #include <thread>
 #include <algorithm>
+#include <functional>
 #include "Process.hpp"
 #include "Video.hpp"
 
 using namespace std;
 using namespace DerperView;
 
-int Go(const string inputFilename, const string outputFilename, const int totalThreads)
+int Go(const string inputFilename, const string outputFilename, const int totalThreads, ostream& outputStream, function<void(int)> callback)
 {
     InputVideoFile input(inputFilename);
     if (input.GetLastError() != 0)
@@ -55,8 +56,8 @@ int Go(const string inputFilename, const string outputFilename, const int totalT
 
     unique_ptr<Process> process = make_unique<CpuProcess>(inputVideoInfo.width, inputVideoInfo.height);
     
-    cout << "Running up with " << totalThreads << " thread" << (totalThreads > 1 ? "s" : "") << "..." << endl;
-    cout << "--------------------------------------------------------------------" <<  endl;
+    outputStream << "Running up with " << totalThreads << " thread" << (totalThreads > 1 ? "s" : "") << "..." << endl;
+    outputStream << "--------------------------------------------------------------------" <<  endl;
 
     auto frame = input.GetNextFrame();
     while (frame != nullptr)
@@ -98,13 +99,19 @@ int Go(const string inputFilename, const string outputFilename, const int totalT
 
                     if (frameCount % percentageMarker == 0)
                     {
-                        cout << " " << ceil(static_cast<float>(frameCount) * 100 / inputVideoInfo.totalFrames) << "% ";
-                        cout.flush();
+                        int percentage = ceil(static_cast<float>(frameCount) * 100 / inputVideoInfo.totalFrames);
+                        outputStream << " " << percentage << "% ";
+                        outputStream.flush();
+
+                        if (callback != nullptr)
+                        {
+                            callback(percentage);
+                        }
                     }
                     else if (frameCount % 5 == 0)
                     {
-                        cout << ".";
-                        cout.flush();
+                        outputStream << ".";
+                        outputStream.flush();
                     }
                 }
 
@@ -134,18 +141,18 @@ int Go(const string inputFilename, const string outputFilename, const int totalT
         frameCount++;
 
         if (frameCount % percentageMarker == 0)
-            cout << " " << ceil(static_cast<float>(frameCount) * 100 / inputVideoInfo.totalFrames) << "% ";
+            outputStream << " " << ceil(static_cast<float>(frameCount) * 100 / inputVideoInfo.totalFrames) << "% ";
         else if (frameCount % 5 == 0)
-            cout << ".";
+            outputStream << ".";
     }
 
     output.Flush();
 
-    cout << endl;
-    cout << "Encoded packet count: " << encodedPacketCount << endl;
-    cout << "Frames read: " << frameCount << endl;
+    outputStream << endl;
+    outputStream << "Encoded packet count: " << encodedPacketCount << endl;
+    outputStream << "Frames read: " << frameCount << endl;
 
-    cout << "--------------------------------------------------------------------" << endl;
+    outputStream << "--------------------------------------------------------------------" << endl;
 
     return 0;
 }
