@@ -16,3 +16,4 @@ version.cpp
 Makefile
 src/derperview/derperview.dir
 src/libderperview/libderperview.dir
+src/derperview-wx/derperview-wx.dir

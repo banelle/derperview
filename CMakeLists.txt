@@ -18,8 +18,9 @@ if(UNIX)
 endif()
 
 if(WIN32)
-    set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/lib")
+    set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/lib;${PROJECT_SOURCE_DIR}/lib/wxwidgets-windows")
     set(DERPERVIEW_FFMPEG_DLL_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/bin")
+    set(DERPERVIEW_WXWIDGETS_DLL_PATH "${PROJECT_SOURCE_DIR}/lib/wxwidgets-windows")
     include_directories("${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/include")
 endif()
 
@@ -63,6 +64,11 @@ else()
     message(STATUS "using libavutil: ${LIBAVUTIL}")
 endif()
 
+find_library(WXWIDGET_BASE_DEBUG wxbase32ud)
+find_library(WXWIDGET_CORE_DEBUG wxmsw32ud_core)
+find_library(WXWIDGET_BASE_RELEASE wxbase32u)
+find_library(WXWIDGET_CORE_RELEASE wxmsw32u_core)
+
 find_package(Git QUIET)
 if(NOT GIT_FOUND)
     message(FATAL_ERROR "git not found")
@@ -82,5 +88,8 @@ message(STATUS "version: ${VERSION}")
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/src/version.cpp)
 set(VERSION_FILE "${CMAKE_CURRENT_BINARY_DIR}/src/version.cpp")
 
+add_definitions(-D_UNICODE -DUNICODE)
+
 add_subdirectory(src/libderperview)
 add_subdirectory(src/derperview)
+add_subdirectory(src/derperview-wx)
