@@ -13,7 +13,9 @@ using namespace std;
 
 enum
 {
-    GO_BUTTON_ID = 100
+    GO_BUTTON_ID = 100,
+    ADD_FILES_BUTTON_ID,
+    REMOVE_ALL_BUTTON_ID
 };
 
 class DerperViewFrame : public wxFrame
@@ -27,11 +29,18 @@ private:
     void OnExit(wxCommandEvent& event);
     void OnAbout(wxCommandEvent& event);
     void OnGo(wxCommandEvent& event);
+    void OnAddFiles(wxCommandEvent& event);
+    void OnRemoveAll(wxCommandEvent& event);
 
+    void OnUpdateFileProgress(wxThreadEvent& ev);
+    void OnFileStarted(wxThreadEvent& ev);
+    void OnFileCompleted(wxThreadEvent& ev);
+    void OnBatchStarted(wxThreadEvent& ev);
+    void OnBatchCompleted(wxThreadEvent& ev);
+
+    ProgressDialog* progressDialog_;
     wxTextCtrl* fileListControl_;
     vector<string> filenameList_;
-
-    wxDECLARE_EVENT_TABLE();
 };
 
 class DerperViewApp : public wxApp
@@ -39,12 +48,6 @@ class DerperViewApp : public wxApp
 public:
     virtual bool OnInit();
 };
-
-wxBEGIN_EVENT_TABLE(DerperViewFrame, wxFrame)
-    EVT_MENU(wxID_EXIT, DerperViewFrame::OnExit)
-    EVT_MENU(wxID_ABOUT, DerperViewFrame::OnAbout)
-    EVT_BUTTON(GO_BUTTON_ID, DerperViewFrame::OnGo)
-wxEND_EVENT_TABLE()
 
 bool DerperViewApp::OnInit()
 {
@@ -75,21 +78,41 @@ DerperViewFrame::DerperViewFrame()
     wxMenuBar *menuBar = new wxMenuBar;
     menuBar->Append(menuFile, "&File");
     menuBar->Append(menuHelp, "&Help");
+
+    progressDialog_ = new ProgressDialog(this);
  
     SetMenuBar( menuBar );
  
     CreateStatusBar();
     SetStatusText("Ready");
 
-    fileListControl_ = new wxTextCtrl(this, wxID_ANY, _("Drop files onto me!"), wxDefaultPosition, wxSize(400, 200), wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP);
+    fileListControl_ = new wxTextCtrl(this, wxID_ANY, _("Drop files here"), wxDefaultPosition, wxSize(400, 200), wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP);
     fileListControl_->SetDropTarget(new FileDropTarget(this));
 
     auto goButton = new wxButton(this, GO_BUTTON_ID, "Go");
+    auto addFilesButton = new wxButton(this, ADD_FILES_BUTTON_ID, "Add Files");
+    auto clearButton = new wxButton(this, REMOVE_ALL_BUTTON_ID, "Remove All");
 
-    wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-    sizer->Add(fileListControl_, wxSizerFlags().Expand());
-    sizer->Add(goButton);
-    SetSizerAndFit(sizer);
+    wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
+    mainSizer->Add(fileListControl_, wxSizerFlags().Expand());
+    auto buttonSizer = new wxBoxSizer(wxHORIZONTAL);
+    buttonSizer->Add(goButton, wxSizerFlags().Expand());
+    buttonSizer->Add(addFilesButton, wxSizerFlags().Expand());
+    buttonSizer->Add(clearButton, wxSizerFlags().Expand());
+    mainSizer->Add(buttonSizer, wxSizerFlags().Expand());
+    SetSizerAndFit(mainSizer);
+
+    Bind(wxEVT_MENU, &DerperViewFrame::OnExit, this, wxID_EXIT);
+    Bind(wxEVT_MENU, &DerperViewFrame::OnAbout, this, wxID_ABOUT);
+    Bind(wxEVT_BUTTON, &DerperViewFrame::OnGo, this, GO_BUTTON_ID);
+    Bind(wxEVT_BUTTON, &DerperViewFrame::OnAddFiles, this, ADD_FILES_BUTTON_ID);
+    Bind(wxEVT_BUTTON, &DerperViewFrame::OnRemoveAll, this, REMOVE_ALL_BUTTON_ID);
+
+    Bind(DERPERVIEW_THREAD_PROGRESS_UPDATE, &DerperViewFrame::OnUpdateFileProgress, this);
+    Bind(DERPERVIEW_THREAD_FILE_STARTED, &DerperViewFrame::OnFileStarted, this);
+    Bind(DERPERVIEW_THREAD_FILE_COMPLETED, &DerperViewFrame::OnFileCompleted, this);
+    Bind(DERPERVIEW_THREAD_BATCH_STARTED, &DerperViewFrame::OnBatchStarted, this);
+    Bind(DERPERVIEW_THREAD_BATCH_COMPLETED, &DerperViewFrame::OnBatchCompleted, this);
 }
 
 void DerperViewFrame::FilesAdded(vector<string> filenames)
@@ -126,31 +149,103 @@ void DerperViewFrame::OnAbout(wxCommandEvent& event)
                  "About Hello World", wxOK | wxICON_INFORMATION);
 }
 
-void WorkerThread(ProgressDialog& progressDialog, vector<string> filenames)
+void DerperViewFrame::OnUpdateFileProgress(wxThreadEvent& ev)
 {
-    auto callback = [&dialog = progressDialog](int p)
+    progressDialog_->UpdateFileProgress(ev.GetPayload<int>());
+}
+
+void DerperViewFrame::OnFileStarted(wxThreadEvent& ev)
+{
+    progressDialog_->StartFile(ev.GetPayload<string>());
+}
+
+void DerperViewFrame::OnFileCompleted(wxThreadEvent& ev)
+{
+    progressDialog_->CompleteFile();
+}
+void DerperViewFrame::OnBatchStarted(wxThreadEvent& ev)
+{
+    progressDialog_->StartBatch(ev.GetPayload<size_t>());
+    progressDialog_->Show();
+    Disable();
+}
+
+void DerperViewFrame::OnBatchCompleted(wxThreadEvent& ev)
+{
+    progressDialog_->CompleteBatch();
+    progressDialog_->Hide();
+    Enable();
+}
+
+class WorkerThread : public wxThread
+{
+public:
+    WorkerThread(wxFrame* parent, vector<string>& filenames)
+        : wxThread(wxTHREAD_DETACHED), parent_(parent), filenames_(filenames) { }
+
+protected:
+    virtual ExitCode Entry();
+
+    wxFrame* parent_;
+    vector<string> filenames_;
+};
+
+template <class T>
+wxThreadEvent* CreateThreadEventWithPayload(wxEventType eventType, T payload)
+{
+    auto ev = new wxThreadEvent(eventType);
+    ev->SetPayload(payload);
+    return ev;
+}
+
+wxThread::ExitCode WorkerThread::Entry()
+{
+    auto callback = [&parent = parent_](int p)
     {
-        dialog.UpdateFileProgressCallback(p);
+        wxQueueEvent(parent, CreateThreadEventWithPayload(DERPERVIEW_THREAD_PROGRESS_UPDATE, p));
     };
 
+    wxQueueEvent(parent_, CreateThreadEventWithPayload(DERPERVIEW_THREAD_BATCH_STARTED, filenames_.size()));
+
     ostringstream outputStream;
-    for (auto filename : filenames)
+    for (auto filename : filenames_)
     {
-        progressDialog.UpdateCurrentFile(filename);
-        Go(filename, filename + "out.mp4", 4, outputStream, callback);
-        progressDialog.UpdateTotalProgress();
+        wxQueueEvent(parent_, CreateThreadEventWithPayload(DERPERVIEW_THREAD_FILE_STARTED, filename));
+        Go(filename, filename + ".out.mp4", 4, outputStream, callback);
+        wxQueueEvent(parent_, new wxThreadEvent(DERPERVIEW_THREAD_FILE_COMPLETED));
     }
+
+    wxQueueEvent(parent_, new wxThreadEvent(DERPERVIEW_THREAD_BATCH_COMPLETED));
+    return (wxThread::ExitCode)0;
 }
 
 void DerperViewFrame::OnGo(wxCommandEvent& event)
 {
-    ProgressDialog progressDialog(this, filenameList_.size());
+    auto workerThread = new WorkerThread(this, filenameList_);
+    workerThread->Run();
+}
 
-    auto workerThread = thread(WorkerThread, ref(progressDialog), ref(filenameList_));
+void DerperViewFrame::OnAddFiles(wxCommandEvent& event)
+{
+    wxFileDialog openFileDialog(this, _("Add file(s)"), "", "", "Video files (*.mp4)|*.mp4", wxFD_OPEN | wxFD_FILE_MUST_EXIST | wxFD_MULTIPLE);
+    if (openFileDialog.ShowModal() == wxID_CANCEL)
+        return;
 
-    progressDialog.ShowModal();
+    wxArrayString filenames;
+    openFileDialog.GetFilenames(filenames);
+    vector<string> filenameList;
+    for (int i = 0; i < filenames.Count(); i++)
+    {
+        filenameList.push_back(filenames[i].ToStdString());
+    }
 
-    workerThread.join();
+    FilesAdded(filenameList);
+}
+
+void DerperViewFrame::OnRemoveAll(wxCommandEvent& event)
+{
+    filenameList_.clear();
+    fileListControl_->SetValue("Drop files here");
 }
 
 wxIMPLEMENT_APP(DerperViewApp);

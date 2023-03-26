@@ -3,11 +3,13 @@
 class ProgressDialog : public wxDialog
 {
 public:
-    ProgressDialog(wxWindow* parent, int fileCount);
+    ProgressDialog(wxWindow* parent);
 
-    void UpdateFileProgressCallback(int percentage) const;
-    void UpdateTotalProgress() const;
-    void UpdateCurrentFile(std::string filename) const;
+    void UpdateFileProgress(int p);
+    void StartFile(std::string filename);
+    void CompleteFile();
+    void StartBatch(int fileCount);
+    void CompleteBatch();
 
 private:
     wxGauge* totalProgress_;
