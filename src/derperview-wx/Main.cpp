@@ -94,12 +94,12 @@ DerperViewFrame::DerperViewFrame()
     auto clearButton = new wxButton(this, REMOVE_ALL_BUTTON_ID, "Remove All");
 
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
-    mainSizer->Add(fileListControl_, wxSizerFlags().Expand());
+    mainSizer->Add(fileListControl_, wxSizerFlags(1).Expand().Border(wxALL, 10));
     auto buttonSizer = new wxBoxSizer(wxHORIZONTAL);
-    buttonSizer->Add(goButton, wxSizerFlags().Expand());
-    buttonSizer->Add(addFilesButton, wxSizerFlags().Expand());
-    buttonSizer->Add(clearButton, wxSizerFlags().Expand());
-    mainSizer->Add(buttonSizer, wxSizerFlags().Expand());
+    buttonSizer->Add(goButton);
+    buttonSizer->Add(addFilesButton);
+    buttonSizer->Add(clearButton);
+    mainSizer->Add(buttonSizer, wxSizerFlags(0).Center().Border(wxBOTTOM, 10));
     SetSizerAndFit(mainSizer);
 
     Bind(wxEVT_MENU, &DerperViewFrame::OnExit, this, wxID_EXIT);

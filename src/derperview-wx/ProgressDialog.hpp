@@ -14,5 +14,6 @@ public:
 private:
     wxGauge* totalProgress_;
     wxGauge* fileProgress_;
-    wxTextCtrl* currentFile_;
+    wxStaticText* currentFile_;
+    wxButton* cancelButton_;
 };

@@ -2,17 +2,25 @@
 
 using namespace std;
 
-ProgressDialog::ProgressDialog(wxWindow* parent)
-    : wxDialog(parent, wxID_ANY, "DerperView - working!")
+enum
 {
-    fileProgress_ = new wxGauge(this, wxID_ANY, 100);
-    totalProgress_ = new wxGauge(this, wxID_ANY, 1);
-    currentFile_ = new wxTextCtrl(this, wxID_ANY, _(""), wxDefaultPosition, wxSize(250, 40), wxTE_READONLY);
+    CANCEL_BUTTON_ID = 200
+};
+
+ProgressDialog::ProgressDialog(wxWindow* parent)
+    : wxDialog(parent, wxID_ANY, "DerperView - working!", wxDefaultPosition, wxDefaultSize, wxCAPTION | wxSTAY_ON_TOP)
+{
+    fileProgress_ = new wxGauge(this, wxID_ANY, 100, wxDefaultPosition, wxSize(100, 20));
+    totalProgress_ = new wxGauge(this, wxID_ANY, 1, wxDefaultPosition, wxSize(100, 20));
+    currentFile_ = new wxStaticText(this, wxID_ANY, _(""), wxDefaultPosition, wxSize(250, 20), wxALIGN_CENTRE_HORIZONTAL | wxST_NO_AUTORESIZE | wxST_ELLIPSIZE_START);
+
+    cancelButton_ = new wxButton(this, wxID_CANCEL, "Cancel");
 
     wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-    sizer->Add(currentFile_, wxSizerFlags().Expand());
-    sizer->Add(fileProgress_, wxSizerFlags().Expand());
-    sizer->Add(totalProgress_, wxSizerFlags().Expand());
+    sizer->Add(currentFile_, wxSizerFlags().Border(wxALL, 5));
+    sizer->Add(fileProgress_, wxSizerFlags().Expand().Border(wxALL, 5));
+    sizer->Add(totalProgress_, wxSizerFlags().Expand().Border(wxALL, 5));
+    sizer->Add(cancelButton_, wxSizerFlags().Center().Border(wxALL, 5));
     SetSizerAndFit(sizer);
 }
 
@@ -34,6 +42,7 @@ void ProgressDialog::CompleteFile()
 
 void ProgressDialog::StartBatch(int fileCount)
 {
+    totalProgress_->SetValue(0);
     totalProgress_->SetRange(fileCount);
 }
 
