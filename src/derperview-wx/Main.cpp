@@ -41,6 +41,7 @@ private:
     ProgressDialog* progressDialog_;
     wxTextCtrl* fileListControl_;
     vector<string> filenameList_;
+    bool cancelThread_;
 };
 
 class DerperViewApp : public wxApp
@@ -79,7 +80,7 @@ DerperViewFrame::DerperViewFrame()
     menuBar->Append(menuFile, "&File");
     menuBar->Append(menuHelp, "&Help");
 
-    progressDialog_ = new ProgressDialog(this);
+    progressDialog_ = new ProgressDialog(this, cancelThread_);
  
     SetMenuBar( menuBar );
  
@@ -104,6 +105,7 @@ DerperViewFrame::DerperViewFrame()
 
     Bind(wxEVT_MENU, &DerperViewFrame::OnExit, this, wxID_EXIT);
     Bind(wxEVT_MENU, &DerperViewFrame::OnAbout, this, wxID_ABOUT);
+
     Bind(wxEVT_BUTTON, &DerperViewFrame::OnGo, this, GO_BUTTON_ID);
     Bind(wxEVT_BUTTON, &DerperViewFrame::OnAddFiles, this, ADD_FILES_BUTTON_ID);
     Bind(wxEVT_BUTTON, &DerperViewFrame::OnRemoveAll, this, REMOVE_ALL_BUTTON_ID);
@@ -180,14 +182,15 @@ void DerperViewFrame::OnBatchCompleted(wxThreadEvent& ev)
 class WorkerThread : public wxThread
 {
 public:
-    WorkerThread(wxFrame* parent, vector<string>& filenames)
-        : wxThread(wxTHREAD_DETACHED), parent_(parent), filenames_(filenames) { }
+    WorkerThread(wxFrame* parent, vector<string>& filenames, bool& cancelThread)
+        : wxThread(wxTHREAD_DETACHED), parent_(parent), filenames_(filenames), cancelThread_(cancelThread) { }
 
 protected:
     virtual ExitCode Entry();
 
     wxFrame* parent_;
     vector<string> filenames_;
+    bool& cancelThread_;
 };
 
 template <class T>
@@ -211,7 +214,7 @@ wxThread::ExitCode WorkerThread::Entry()
     for (auto filename : filenames_)
     {
         wxQueueEvent(parent_, CreateThreadEventWithPayload(DERPERVIEW_THREAD_FILE_STARTED, filename));
-        Go(filename, filename + ".out.mp4", 4, outputStream, callback);
+        Go(filename, filename + ".out.mp4", 4, outputStream, callback, cancelThread_);
         wxQueueEvent(parent_, new wxThreadEvent(DERPERVIEW_THREAD_FILE_COMPLETED));
     }
 
@@ -221,7 +224,8 @@ wxThread::ExitCode WorkerThread::Entry()
 
 void DerperViewFrame::OnGo(wxCommandEvent& event)
 {
-    auto workerThread = new WorkerThread(this, filenameList_);
+    cancelThread_ = false;
+    auto workerThread = new WorkerThread(this, filenameList_, cancelThread_);
     workerThread->Run();
 }
 

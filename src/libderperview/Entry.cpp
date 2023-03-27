@@ -10,7 +10,7 @@
 using namespace std;
 using namespace DerperView;
 
-int Go(const string inputFilename, const string outputFilename, const int totalThreads, ostream& outputStream, function<void(int)> callback)
+int Go(const string inputFilename, const string outputFilename, const int totalThreads, ostream& outputStream, function<void(int)> callback, const bool& cancel)
 {
     InputVideoFile input(inputFilename);
     if (input.GetLastError() != 0)
@@ -60,7 +60,7 @@ int Go(const string inputFilename, const string outputFilename, const int totalT
     outputStream << "--------------------------------------------------------------------" <<  endl;
 
     auto frame = input.GetNextFrame();
-    while (frame != nullptr)
+    while (frame != nullptr && !cancel)
     {
         if (frame->width == 0) // Audio - stream it through
         {
