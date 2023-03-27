@@ -1,4 +1,4 @@
-add_executable(${CMAKE_PROJECT_NAME}-wx WIN32 Main.cpp derperview-wx.hpp ProgressDialog.cpp ProgressDialog.hpp ${VERSION_FILE})
+add_executable(${CMAKE_PROJECT_NAME}-wx WIN32 Main.cpp derperview-wx.hpp ProgressDialog.cpp ProgressDialog.hpp WorkerThread.cpp WorkerThread.hpp ${VERSION_FILE})
 
 target_include_directories(${CMAKE_PROJECT_NAME}-wx PUBLIC "${PROJECT_SOURCE_DIR}/lib/wxwidgets-windows/include")
 

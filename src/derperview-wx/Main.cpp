@@ -5,9 +5,9 @@
 #include <sstream>
 #include <thread>
 
-#include "libderperview.hpp"
 #include "version.hpp"
 #include "ProgressDialog.hpp"
+#include "WorkerThread.hpp"
 
 using namespace std;
 
@@ -68,7 +68,7 @@ private:
 };
 
 DerperViewFrame::DerperViewFrame()
-    : wxFrame(nullptr, wxID_ANY, "DerperView")
+    : wxFrame(nullptr, wxID_ANY, "DerperView"), cancelThread_(false)
 {
     wxMenu *menuFile = new wxMenu;
     menuFile->Append(wxID_EXIT);
@@ -165,6 +165,7 @@ void DerperViewFrame::OnFileCompleted(wxThreadEvent& ev)
 {
     progressDialog_->CompleteFile();
 }
+
 void DerperViewFrame::OnBatchStarted(wxThreadEvent& ev)
 {
     progressDialog_->StartBatch(ev.GetPayload<size_t>());
@@ -177,49 +178,6 @@ void DerperViewFrame::OnBatchCompleted(wxThreadEvent& ev)
     progressDialog_->CompleteBatch();
     progressDialog_->Hide();
     Enable();
-}
-
-class WorkerThread : public wxThread
-{
-public:
-    WorkerThread(wxFrame* parent, vector<string>& filenames, bool& cancelThread)
-        : wxThread(wxTHREAD_DETACHED), parent_(parent), filenames_(filenames), cancelThread_(cancelThread) { }
-
-protected:
-    virtual ExitCode Entry();
-
-    wxFrame* parent_;
-    vector<string> filenames_;
-    bool& cancelThread_;
-};
-
-template <class T>
-wxThreadEvent* CreateThreadEventWithPayload(wxEventType eventType, T payload)
-{
-    auto ev = new wxThreadEvent(eventType);
-    ev->SetPayload(payload);
-    return ev;
-}
-
-wxThread::ExitCode WorkerThread::Entry()
-{
-    auto callback = [&parent = parent_](int p)
-    {
-        wxQueueEvent(parent, CreateThreadEventWithPayload(DERPERVIEW_THREAD_PROGRESS_UPDATE, p));
-    };
-
-    wxQueueEvent(parent_, CreateThreadEventWithPayload(DERPERVIEW_THREAD_BATCH_STARTED, filenames_.size()));
-
-    ostringstream outputStream;
-    for (auto filename : filenames_)
-    {
-        wxQueueEvent(parent_, CreateThreadEventWithPayload(DERPERVIEW_THREAD_FILE_STARTED, filename));
-        Go(filename, filename + ".out.mp4", 4, outputStream, callback, cancelThread_);
-        wxQueueEvent(parent_, new wxThreadEvent(DERPERVIEW_THREAD_FILE_COMPLETED));
-    }
-
-    wxQueueEvent(parent_, new wxThreadEvent(DERPERVIEW_THREAD_BATCH_COMPLETED));
-    return (wxThread::ExitCode)0;
 }
 
 void DerperViewFrame::OnGo(wxCommandEvent& event)
