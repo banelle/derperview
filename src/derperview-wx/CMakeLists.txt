@@ -18,8 +18,8 @@ if(WIN32)
             "${DERPERVIEW_FFMPEG_DLL_PATH}/avformat-59.dll"
             "${DERPERVIEW_FFMPEG_DLL_PATH}/avutil-57.dll"
             "${DERPERVIEW_FFMPEG_DLL_PATH}/swresample-4.dll"
-            "${DERPERVIEW_WXWIDGETS_DLL_PATH}/wxbase32ud_vc14x_x64.dll"
-            "${DERPERVIEW_WXWIDGETS_DLL_PATH}/wxmsw32ud_core_vc14x_x64.dll"
+            "${DERPERVIEW_WXWIDGETS_DLL_PATH}/wxbase32u$<$<CONFIG:Debug>:d>_vc14x_x64.dll"
+            "${DERPERVIEW_WXWIDGETS_DLL_PATH}/wxmsw32u$<$<CONFIG:Debug>:d>_core_vc14x_x64.dll"
             "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>"
     )
 endif()
