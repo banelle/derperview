@@ -1,6 +1,7 @@
 #include "derperview-wx.hpp"
 
 #include "wx/dnd.h"
+#include "wx/dataview.h"
 
 #include <sstream>
 #include <thread>
@@ -15,6 +16,7 @@ enum
 {
     GO_BUTTON_ID = 100,
     ADD_FILES_BUTTON_ID,
+    REMOVE_FILE_BUTTON_ID,
     REMOVE_ALL_BUTTON_ID
 };
 
@@ -30,6 +32,7 @@ private:
     void OnAbout(wxCommandEvent& event);
     void OnGo(wxCommandEvent& event);
     void OnAddFiles(wxCommandEvent& event);
+    void OnRemoveFile(wxCommandEvent& event);
     void OnRemoveAll(wxCommandEvent& event);
 
     void OnUpdateFileProgress(wxThreadEvent& ev);
@@ -39,7 +42,7 @@ private:
     void OnBatchCompleted(wxThreadEvent& ev);
 
     ProgressDialog* progressDialog_;
-    wxTextCtrl* fileListControl_;
+    wxDataViewListCtrl* fileListControl_;
     vector<string> filenameList_;
     bool cancelThread_;
 };
@@ -87,11 +90,15 @@ DerperViewFrame::DerperViewFrame()
     CreateStatusBar();
     SetStatusText("Ready");
 
-    fileListControl_ = new wxTextCtrl(this, wxID_ANY, _("Drop files here"), wxDefaultPosition, wxSize(400, 200), wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP);
+    // fileListControl_ = new wxTextCtrl(this, wxID_ANY, _("Drop files here"), wxDefaultPosition, wxSize(400, 200), wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP);
+
+    fileListControl_ = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(400, 200), wxDV_SINGLE | wxDV_NO_HEADER | wxDV_ROW_LINES);
+    fileListControl_->AppendTextColumn("Text");
     fileListControl_->SetDropTarget(new FileDropTarget(this));
 
     auto goButton = new wxButton(this, GO_BUTTON_ID, "Go");
     auto addFilesButton = new wxButton(this, ADD_FILES_BUTTON_ID, "Add Files");
+    auto removeFileButton = new wxButton(this, REMOVE_FILE_BUTTON_ID, "Remove File");
     auto clearButton = new wxButton(this, REMOVE_ALL_BUTTON_ID, "Remove All");
 
     wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
@@ -99,6 +106,7 @@ DerperViewFrame::DerperViewFrame()
     auto buttonSizer = new wxBoxSizer(wxHORIZONTAL);
     buttonSizer->Add(goButton);
     buttonSizer->Add(addFilesButton);
+    buttonSizer->Add(removeFileButton);
     buttonSizer->Add(clearButton);
     mainSizer->Add(buttonSizer, wxSizerFlags(0).Center().Border(wxBOTTOM, 10));
     SetSizerAndFit(mainSizer);
@@ -108,6 +116,7 @@ DerperViewFrame::DerperViewFrame()
 
     Bind(wxEVT_BUTTON, &DerperViewFrame::OnGo, this, GO_BUTTON_ID);
     Bind(wxEVT_BUTTON, &DerperViewFrame::OnAddFiles, this, ADD_FILES_BUTTON_ID);
+    Bind(wxEVT_BUTTON, &DerperViewFrame::OnRemoveFile, this, REMOVE_FILE_BUTTON_ID);
     Bind(wxEVT_BUTTON, &DerperViewFrame::OnRemoveAll, this, REMOVE_ALL_BUTTON_ID);
 
     Bind(DERPERVIEW_THREAD_PROGRESS_UPDATE, &DerperViewFrame::OnUpdateFileProgress, this);
@@ -119,12 +128,17 @@ DerperViewFrame::DerperViewFrame()
 
 void DerperViewFrame::FilesAdded(vector<string> filenames)
 {
-    filenameList_.insert(filenameList_.end(), filenames.begin(), filenames.end());
+    for (auto filename : filenames)
+    {
+        if (find(filenameList_.begin(), filenameList_.end(), filename) == filenameList_.end())
+        {
+            filenameList_.push_back(filename);
 
-    ostringstream joined;
-    copy(filenameList_.begin(), filenameList_.end(),
-        ostream_iterator<string>(joined, "\r\n"));
-    fileListControl_->SetValue(joined.str());
+            wxVector<wxVariant> data;
+            data.push_back(wxVariant(filename));
+            fileListControl_->AppendItem(data);
+        }
+    }
 }
 
 bool FileDropTarget::OnDropFiles(wxCoord x, wxCoord y, const wxArrayString& filenames)
@@ -171,6 +185,7 @@ void DerperViewFrame::OnBatchStarted(wxThreadEvent& ev)
     progressDialog_->StartBatch(ev.GetPayload<size_t>());
     progressDialog_->Show();
     Disable();
+    SetStatusText("Derpin'");
 }
 
 void DerperViewFrame::OnBatchCompleted(wxThreadEvent& ev)
@@ -178,6 +193,7 @@ void DerperViewFrame::OnBatchCompleted(wxThreadEvent& ev)
     progressDialog_->CompleteBatch();
     progressDialog_->Hide();
     Enable();
+    SetStatusText("Ready");
 }
 
 void DerperViewFrame::OnGo(wxCommandEvent& event)
@@ -204,10 +220,24 @@ void DerperViewFrame::OnAddFiles(wxCommandEvent& event)
     FilesAdded(filenameList);
 }
 
+void DerperViewFrame::OnRemoveFile(wxCommandEvent& event)
+{
+    auto selectedRow = fileListControl_->GetSelectedRow();
+    if (selectedRow == wxNOT_FOUND)
+        return;
+
+    wxVariant value;
+    fileListControl_->GetValue(value, selectedRow, 0);
+    fileListControl_->DeleteItem(selectedRow);
+
+    string filename = value.GetString().ToStdString();
+    filenameList_.erase(remove(filenameList_.begin(), filenameList_.end(), filename), filenameList_.end());
+}
+
 void DerperViewFrame::OnRemoveAll(wxCommandEvent& event)
 {
     filenameList_.clear();
-    fileListControl_->SetValue("Drop files here");
+    fileListControl_->DeleteAllItems();
 }
 
 wxIMPLEMENT_APP(DerperViewApp);

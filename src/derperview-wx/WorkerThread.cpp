@@ -6,6 +6,12 @@
 
 using namespace std;
 
+wxDEFINE_EVENT(DERPERVIEW_THREAD_PROGRESS_UPDATE, wxThreadEvent);
+wxDEFINE_EVENT(DERPERVIEW_THREAD_FILE_STARTED, wxThreadEvent);
+wxDEFINE_EVENT(DERPERVIEW_THREAD_FILE_COMPLETED, wxThreadEvent);
+wxDEFINE_EVENT(DERPERVIEW_THREAD_BATCH_STARTED, wxThreadEvent);
+wxDEFINE_EVENT(DERPERVIEW_THREAD_BATCH_COMPLETED, wxThreadEvent);
+
 template <class T>
 wxThreadEvent* CreateThreadEventWithPayload(wxEventType eventType, T payload)
 {
