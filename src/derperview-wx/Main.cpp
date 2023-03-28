@@ -74,6 +74,11 @@ DerperViewFrame::DerperViewFrame()
     : wxFrame(nullptr, wxID_ANY, "DerperView"), cancelThread_(false)
 {
     wxMenu *menuFile = new wxMenu;
+    menuFile->Append(GO_BUTTON_ID, "Go");
+    menuFile->Append(ADD_FILES_BUTTON_ID, "Add Files");
+    menuFile->Append(REMOVE_FILE_BUTTON_ID, "Remove File");
+    menuFile->Append(REMOVE_ALL_BUTTON_ID, "Remove All");
+    menuFile->AppendSeparator();
     menuFile->Append(wxID_EXIT);
  
     wxMenu *menuHelp = new wxMenu;
@@ -89,8 +94,6 @@ DerperViewFrame::DerperViewFrame()
  
     CreateStatusBar();
     SetStatusText("Ready");
-
-    // fileListControl_ = new wxTextCtrl(this, wxID_ANY, _("Drop files here"), wxDefaultPosition, wxSize(400, 200), wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP);
 
     fileListControl_ = new wxDataViewListCtrl(this, wxID_ANY, wxDefaultPosition, wxSize(400, 200), wxDV_SINGLE | wxDV_NO_HEADER | wxDV_ROW_LINES);
     fileListControl_->AppendTextColumn("Text");
@@ -113,6 +116,10 @@ DerperViewFrame::DerperViewFrame()
 
     Bind(wxEVT_MENU, &DerperViewFrame::OnExit, this, wxID_EXIT);
     Bind(wxEVT_MENU, &DerperViewFrame::OnAbout, this, wxID_ABOUT);
+    Bind(wxEVT_MENU, &DerperViewFrame::OnGo, this, GO_BUTTON_ID);
+    Bind(wxEVT_MENU, &DerperViewFrame::OnAddFiles, this, ADD_FILES_BUTTON_ID);
+    Bind(wxEVT_MENU, &DerperViewFrame::OnRemoveFile, this, REMOVE_FILE_BUTTON_ID);
+    Bind(wxEVT_MENU, &DerperViewFrame::OnRemoveAll, this, REMOVE_ALL_BUTTON_ID);
 
     Bind(wxEVT_BUTTON, &DerperViewFrame::OnGo, this, GO_BUTTON_ID);
     Bind(wxEVT_BUTTON, &DerperViewFrame::OnAddFiles, this, ADD_FILES_BUTTON_ID);
@@ -161,8 +168,10 @@ void DerperViewFrame::OnExit(wxCommandEvent& event)
 
 void DerperViewFrame::OnAbout(wxCommandEvent& event)
 {
-    wxMessageBox("This is a wxWidgets Hello World example",
-                 "About Hello World", wxOK | wxICON_INFORMATION);
+    stringstream text;
+    text << "Welcome to Derperview " << VERSION;
+    wxMessageBox(text.str(),
+                 "About Derperview", wxOK | wxICON_INFORMATION);
 }
 
 void DerperViewFrame::OnUpdateFileProgress(wxThreadEvent& ev)
