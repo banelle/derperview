@@ -18,9 +18,9 @@ if(UNIX)
 endif()
 
 if(WIN32)
-    set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/lib;${PROJECT_SOURCE_DIR}/lib/wxwidgets-windows")
+    set(CMAKE_LIBRARY_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/lib;${PROJECT_SOURCE_DIR}/lib/wxwidgets-windows/lib")
     set(DERPERVIEW_FFMPEG_DLL_PATH "${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/bin")
-    set(DERPERVIEW_WXWIDGETS_DLL_PATH "${PROJECT_SOURCE_DIR}/lib/wxwidgets-windows")
+    set(DERPERVIEW_WXWIDGETS_DLL_PATH "${PROJECT_SOURCE_DIR}/lib/wxwidgets-windows/bin")
     include_directories("${PROJECT_SOURCE_DIR}/lib/ffmpeg-windows/include")
 endif()
 

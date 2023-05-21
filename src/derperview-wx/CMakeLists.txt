@@ -1,6 +1,6 @@
 add_executable(${CMAKE_PROJECT_NAME}-wx WIN32 Main.cpp derperview-wx.hpp ProgressDialog.cpp ProgressDialog.hpp WorkerThread.cpp WorkerThread.hpp ${VERSION_FILE})
 
-target_include_directories(${CMAKE_PROJECT_NAME}-wx PUBLIC "${PROJECT_SOURCE_DIR}/lib/wxwidgets-windows/include")
+target_include_directories(${CMAKE_PROJECT_NAME}-wx PUBLIC "${PROJECT_SOURCE_DIR}/lib/wxwidgets-windows/include" "${PROJECT_SOURCE_DIR}/lib/wxwidgets-windows/include/mswu$<$<CONFIG:Debug>:d>")
 
 if (UNIX)
     target_link_libraries(${CMAKE_PROJECT_NAME}-wx Threads::Threads lib${CMAKE_PROJECT_NAME})
