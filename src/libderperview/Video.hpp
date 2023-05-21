@@ -34,7 +34,7 @@ namespace DerperView
     class InputVideoFile
     {
     public:
-        InputVideoFile(std::string filename);
+        InputVideoFile(std::string filename, std::ostream &outputStream = std::cout);
         virtual ~InputVideoFile();
 
         void Dump();
@@ -50,6 +50,7 @@ namespace DerperView
 
     protected:
         std::string filename_;
+        std::ostream& outputStream_;
         AVFormatContext *formatContext_;
         AVCodecContext *videoCodecContext_;
         AVCodecContext *audioCodecContext_;
@@ -65,7 +66,7 @@ namespace DerperView
     class OutputVideoFile
     {
     public:
-        OutputVideoFile(std::string filename, VideoInfo sourceInfo);
+        OutputVideoFile(std::string filename, VideoInfo sourceInfo, std::ostream& outputStream = std::cout);
         virtual ~OutputVideoFile();
 
         int WriteNextFrame(AVFrame *frame);
@@ -74,6 +75,7 @@ namespace DerperView
 
     protected:
         std::string filename_;
+        std::ostream& outputStream_;
         AVFormatContext *formatContext_;
         AVCodecContext *videoCodecContext_;
         AVCodecContext *audioCodecContext_;

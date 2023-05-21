@@ -88,7 +88,7 @@ int main(int argc, char** argv)
     chrono::system_clock clock;
     auto startTime = clock.now();
 
-    int result = Go(inputFilename, outputFilename, totalThreads);
+    int result = Go(inputFilename, outputFilename, totalThreads, cout);
 
     auto endTime = clock.now();
     auto minutes = chrono::duration_cast<chrono::minutes>(endTime - startTime).count();
